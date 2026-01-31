@@ -1,36 +1,139 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🍋 Lime++ Frontend
 
-## Getting Started
+Frontend dashboard for Lime++ - A contribution verification and evaluation system.
 
-First, run the development server:
+## Tech Stack
+
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4
+- **UI Components:** shadcn/ui
+- **Data Fetching:** TanStack Query v5
+- **Auth:** NextAuth.js
+- **Charts:** Recharts
+- **Forms:** React Hook Form + Zod
+- **Icons:** Lucide React
+
+## Prerequisites
+
+- [Node.js 18+](https://nodejs.org/)
+
+## Quick Start
+
+### 1. Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy the example env file:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env.local
+```
 
-## Learn More
+Update the values as needed.
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Run the App
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Development mode
+npm run dev
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Production build
+npm run build && npm run start
+```
 
-## Deploy on Vercel
+The app will be available at **http://localhost:3000**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Available Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command         | Description                              |
+| --------------- | ---------------------------------------- |
+| `npm run dev`   | Start development server with hot reload |
+| `npm run build` | Build for production                     |
+| `npm run start` | Start production server                  |
+| `npm run lint`  | Lint the codebase                        |
+
+## Environment Variables
+
+| Variable               | Description         | Example                    |
+| ---------------------- | ------------------- | -------------------------- |
+| `NEXT_PUBLIC_API_URL`  | Backend API URL     | `http://localhost:3001`    |
+| `NEXTAUTH_URL`         | NextAuth base URL   | `http://localhost:3000`    |
+| `NEXTAUTH_SECRET`      | NextAuth secret key | (generate a random string) |
+| `GITHUB_CLIENT_ID`     | GitHub OAuth App ID | (from GitHub)              |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | (from GitHub)              |
+
+## Project Structure
+
+```
+src/
+├── app/                # Next.js App Router pages
+│   ├── layout.tsx      # Root layout
+│   ├── page.tsx        # Home page
+│   └── globals.css     # Global styles
+├── components/         # React components
+│   └── ui/             # shadcn/ui components
+└── lib/
+    └── utils.ts        # Utility functions
+
+public/                 # Static assets
+```
+
+## Adding shadcn/ui Components
+
+```bash
+# Add a button component
+npx shadcn@latest add button
+
+# Add multiple components
+npx shadcn@latest add card dialog dropdown-menu
+
+# See all available components
+npx shadcn@latest add --help
+```
+
+## Running with Backend
+
+For full functionality, run the backend simultaneously:
+
+```bash
+# Terminal 1 - Backend
+cd ../backend
+docker-compose up -d
+npm run start:dev
+
+# Terminal 2 - Frontend
+cd ../frontend
+npm run dev
+```
+
+## Troubleshooting
+
+### Port 3000 already in use
+
+```bash
+# Kill the process using port 3000
+npx kill-port 3000
+
+# Or use a different port
+npm run dev -- -p 3001
+```
+
+### Module not found errors
+
+```bash
+# Clear cache and reinstall
+rm -rf node_modules .next
+npm install
+```
+
+### TypeScript errors
+
+```bash
+# Regenerate types
+npm run build
+```
