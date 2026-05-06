@@ -58,7 +58,7 @@ export function ReportDownloadButton({ projectId, userId, type, format }: Report
       disabled={loading} 
       onClick={handleDownload}
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+      {loading ? <Loader2 data-testid="loader" className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
       {format === "pdf" ? "Export PDF" : "Export CSV"}
     </Button>
   );
