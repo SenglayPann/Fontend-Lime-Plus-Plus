@@ -6,7 +6,8 @@ import {
   GitPullRequest, 
   Trophy,
   ArrowUpRight,
-  TrendingUp
+  TrendingUp,
+  Bell
 } from "lucide-react";
 
 import { AlertsList, AlertItem } from "@/components/ui/AlertsList";
@@ -128,4 +129,5 @@ export default function DashboardPage() {
   );
 }
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";import { Button } from "@/components/ui/button";
+

@@ -33,13 +33,18 @@ const mixData = [
   { name: "Reviews", value: 10 },
 ];
 
+import { ReportDownloadButton } from "@/components/reports/ReportDownloadButton";
+
 export default function MyContributionsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">My Contributions</h1>
-          <p className="text-muted-foreground mt-2">Personal performance breakdown and activity trends.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">My Contributions</h1>
+            <p className="text-muted-foreground mt-2">Personal performance breakdown and activity trends.</p>
+          </div>
+          <ReportDownloadButton projectId="ANY" userId="ME" type="individual" format="pdf" />
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">

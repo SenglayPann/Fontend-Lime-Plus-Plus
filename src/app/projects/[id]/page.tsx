@@ -38,6 +38,8 @@ const teamData = [
   { name: "Alex Johnson", score: 65 },
 ];
 
+import { ReportDownloadButton } from "@/components/reports/ReportDownloadButton";
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -85,14 +87,14 @@ export default function ProjectDetailPage() {
           </div>
           
           <div className="flex items-center gap-3">
+            <ReportDownloadButton projectId={id} type="project" format="csv" />
+            <ReportDownloadButton projectId={id} type="project" format="pdf" />
+            <div className="w-px h-6 bg-border mx-1" />
             <Button variant="outline" className="gap-2">
               <RefreshCw className="h-4 w-4" /> Sync Kanban
             </Button>
             <Button variant="outline" className="gap-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200">
               <Lock className="h-4 w-4" /> Lock Project
-            </Button>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-5 w-5" />
             </Button>
           </div>
         </div>
