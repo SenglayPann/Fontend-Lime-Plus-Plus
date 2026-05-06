@@ -9,6 +9,13 @@ import {
   TrendingUp
 } from "lucide-react";
 
+import { AlertsList, AlertItem } from "@/components/ui/AlertsList";
+
+const mockAlerts: AlertItem[] = [
+  { id: "1", type: "warning", title: "Unlinked Tasks Detected", message: "4 tasks in 'Lime++ Backend' are completed but not linked to any Pull Request.", time: "10m ago" },
+  { id: "2", type: "info", title: "New Feature Available", message: "You can now export contribution reports in PDF format from the project settings.", time: "1h ago" },
+];
+
 export default function DashboardPage() {
   const stats = [
     { name: "Active Students", value: "1,248", icon: Users, change: "+12%", color: "text-blue-600" },
@@ -20,10 +27,17 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back, Senglay!</h1>
-          <p className="text-muted-foreground mt-2">Here's an overview of the system's performance today.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back, Senglay!</h1>
+            <p className="text-muted-foreground mt-2">Here's an overview of the system's performance today.</p>
+          </div>
+          <Button variant="outline" className="gap-2">
+            <Bell className="h-4 w-4" /> View All Notifications
+          </Button>
         </div>
+
+        <AlertsList alerts={mockAlerts} />
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
