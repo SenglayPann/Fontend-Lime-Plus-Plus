@@ -1,5 +1,7 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { 
   Users, 
@@ -94,11 +96,11 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back, {session?.user?.name || 'User'}!</h1>
-            <p className="text-muted-foreground mt-2">Here's an overview of the system's performance today.</p>
+            <p className="text-muted-foreground mt-2">Here&apos;s the latest activity from the projects you can access.</p>
           </div>
-          <Link href="#" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 gap-2">
-            <Bell className="h-4 w-4" /> View All Notifications
-          </Link>
+          <Button variant="outline" size="sm" className="gap-2" disabled>
+            <Bell className="h-4 w-4" /> Notifications
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -129,7 +131,7 @@ export default async function DashboardPage() {
           <Card className="col-span-1">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <p className="text-sm text-muted-foreground">Latest contributions across all projects.</p>
+              <p className="text-sm text-muted-foreground">Latest contributions within your current access scope.</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -160,7 +162,7 @@ export default async function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Top Departments</CardTitle>
-                <p className="text-sm text-muted-foreground">Performance by faculty.</p>
+                <p className="text-sm text-muted-foreground">Department performance from visible project data.</p>
               </div>
               <Link href="/departments" className="text-primary text-sm font-medium hover:underline flex items-center">
                 View all <ArrowUpRight className="h-3 w-3 ml-1" />
@@ -191,6 +193,4 @@ export default async function DashboardPage() {
     </DashboardLayout>
   );
 }
-
-import { cn } from "@/lib/utils";import { Button } from "@/components/ui/button";
 

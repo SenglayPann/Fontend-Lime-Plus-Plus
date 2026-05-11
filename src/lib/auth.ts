@@ -44,7 +44,8 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             email: user.email,
             image: user.avatarUrl,
-            role: user.roles?.[0] || 'USER', // Default role if multiple or none
+            role: user.roles?.[0] || 'USER',
+            roles: Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : ['USER'],
             accessToken: credentials.accessToken,
             refreshToken: credentials.refreshToken,
             expiresIn: parseInt(credentials.expiresIn || '900', 10),
@@ -64,6 +65,7 @@ export const authOptions: NextAuthOptions = {
           ...token,
           id: user.id,
           role: user.role,
+          roles: user.roles,
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           expiresIn: user.expiresIn,
@@ -82,6 +84,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       session.user.id = token.id as string;
       session.user.role = token.role as string;
+      session.user.roles = (token.roles as string[]) || [session.user.role];
       session.user.accessToken = token.accessToken as string;
       session.user.refreshToken = token.refreshToken as string;
       session.user.expiresIn = token.expiresIn as number;

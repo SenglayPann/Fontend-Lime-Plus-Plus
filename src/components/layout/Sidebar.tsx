@@ -5,32 +5,28 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { 
   LayoutDashboard, 
-  Building2, 
   GraduationCap, 
   FolderKanban, 
-  Settings, 
-  Users,
   LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "ORGANIZATION_OWNER", "DEPARTMENT_MANAGER", "PROJECT_MANAGER", "PROJECT_MEMBER"] },
-  { name: "Organizations", href: "/organizations", icon: Building2, roles: ["ADMIN", "ORGANIZATION_OWNER"] },
   { name: "Departments", href: "/departments", icon: GraduationCap, roles: ["ADMIN", "DEPARTMENT_MANAGER"] },
   { name: "Projects", href: "/projects", icon: FolderKanban, roles: ["ADMIN", "DEPARTMENT_MANAGER", "PROJECT_MANAGER", "PROJECT_MEMBER"] },
-  { name: "Users", href: "/users", icon: Users, roles: ["ADMIN"] },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  // Extract role from session or default to PROJECT_MEMBER
-  const userRole = session?.user?.role || "PROJECT_MEMBER";
+  const userRoles = session?.user?.roles?.length
+    ? session.user.roles
+    : [session?.user?.role || "PROJECT_MEMBER"];
 
   const filteredNavigation = navigation.filter(item => 
-    item.roles.includes(userRole)
+    item.roles.some((role) => userRoles.includes(role))
   );
 
   return (
