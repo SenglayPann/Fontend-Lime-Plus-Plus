@@ -1,8 +1,10 @@
 "use client";
 
 import { Bell, Search, User } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 export function Header() {
+  const { data: session } = useSession();
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 px-8 backdrop-blur">
       <div className="flex flex-1 items-center gap-4">
@@ -19,19 +21,24 @@ export function Header() {
       <div className="flex items-center gap-4">
         <button className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
           <Bell className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
         </button>
 
         <div className="h-8 w-px bg-border mx-2" />
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-sm font-medium text-foreground">Senglay Pann</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Administrator</p>
+            <p className="text-sm font-medium text-foreground">{session?.user?.name || "User"}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              {session?.user?.role?.replace("_", " ") || "MEMBER"}
+            </p>
           </div>
-          <button className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary border border-primary/20 hover:bg-primary/30 transition-colors">
-            <User className="h-6 w-6" />
-          </button>
+          {session?.user?.image ? (
+            <img src={session.user.image} alt="User" className="h-10 w-10 rounded-full" />
+          ) : (
+            <button className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary border border-primary/20 hover:bg-primary/30 transition-colors">
+              <User className="h-6 w-6" />
+            </button>
+          )}
         </div>
       </div>
     </header>

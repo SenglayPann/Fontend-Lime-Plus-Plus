@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { 
   LayoutDashboard, 
   Building2, 
@@ -23,11 +24,14 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
-  // Mock role - in real app this would come from AuthProvider/Session
-  const userRole = "ADMIN"; 
+  // Extract role from session or default to PROJECT_MEMBER
+  const userRole = session?.user?.role || "PROJECT_MEMBER";
 
-  const filteredNavigation = navigation.filter(item => item.roles.includes(userRole));
+  const filteredNavigation = navigation.filter(item => 
+    item.roles.includes(userRole)
+  );
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">
@@ -65,7 +69,10 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-sidebar-border p-4">
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors">
+        <button 
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+        >
           <LogOut className="h-5 w-5" />
           Sign Out
         </button>

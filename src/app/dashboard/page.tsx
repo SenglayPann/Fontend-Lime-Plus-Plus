@@ -1,5 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { 
   Users, 
   FolderKanban, 
@@ -9,14 +10,10 @@ import {
   TrendingUp,
   Bell
 } from "lucide-react";
-import { AlertsList, AlertItem } from "@/components/ui/AlertsList";
+
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
-const mockAlerts: AlertItem[] = [
-  { id: "1", type: "warning", title: "Unlinked Tasks Detected", message: "4 tasks in 'Lime++ Backend' are completed but not linked to any Pull Request.", time: "10m ago" },
-  { id: "2", type: "info", title: "New Feature Available", message: "You can now export contribution reports in PDF format from the project settings.", time: "1h ago" },
-];
 
 async function fetchStats(token: string) {
   try {
@@ -99,12 +96,10 @@ export default async function DashboardPage() {
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back, {session?.user?.name || 'User'}!</h1>
             <p className="text-muted-foreground mt-2">Here's an overview of the system's performance today.</p>
           </div>
-          <Button variant="outline" className="gap-2">
+          <Link href="#" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 gap-2">
             <Bell className="h-4 w-4" /> View All Notifications
-          </Button>
+          </Link>
         </div>
-
-        <AlertsList alerts={mockAlerts} />
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
@@ -140,20 +135,22 @@ export default async function DashboardPage() {
               <div className="space-y-4">
                 {recentActivity.length === 0 && <p className="text-sm text-muted-foreground">No recent activity.</p>}
                 {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-center gap-4 rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <GitPullRequest className="h-5 w-5 text-primary" />
+                  <Link href={`/projects/${activity.projectId}`} key={activity.id} className="block">
+                    <div className="flex items-center gap-4 rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <GitPullRequest className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.title} in {activity.projectName}</p>
+                        <p className="text-xs text-muted-foreground">by {activity.authorName} • {new Date(activity.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                          +{activity.score} pts
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.title} Merged in {activity.projectName}</p>
-                      <p className="text-xs text-muted-foreground">by {activity.authorName} • {new Date(activity.mergedAt).toLocaleDateString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                        +10 pts
-                      </span>
-                    </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </CardContent>
@@ -165,9 +162,9 @@ export default async function DashboardPage() {
                 <CardTitle>Top Departments</CardTitle>
                 <p className="text-sm text-muted-foreground">Performance by faculty.</p>
               </div>
-              <button className="text-primary text-sm font-medium hover:underline flex items-center">
+              <Link href="/departments" className="text-primary text-sm font-medium hover:underline flex items-center">
                 View all <ArrowUpRight className="h-3 w-3 ml-1" />
-              </button>
+              </Link>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
