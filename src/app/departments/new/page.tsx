@@ -6,27 +6,53 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, GraduationCap, Save, Building2, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, GraduationCap, Save, Building2, Loader2, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { cn } from "@/lib/utils";
+import { Combobox } from "@/components/ui/combobox";
+
+const departmentSchema = z.object({
+  name: z.string().min(2, "Department name must be at least 2 characters"),
+  organizationId: z.string().uuid("Please select an organization"),
+  managerId: z.string().optional(),
+  description: z.string().optional(),
+});
+
+type DepartmentFormValues = z.infer<typeof departmentSchema>;
 
 export default function NewDepartmentPage() {
   const router = useRouter();
   const { data: session } = useSession();
   
-  const [organizations, setOrganizations] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [organizations, setOrganizations] = useState<{ value: string; label: string }[]>([]);
+  const [users, setUsers] = useState<{ value: string; label: string }[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    organizationId: "",
-    managerId: "",
-    description: ""
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting }
+  } = useForm<DepartmentFormValues>({
+    resolver: zodResolver(departmentSchema),
+    defaultValues: {
+      name: "",
+      organizationId: "",
+      managerId: "",
+      description: ""
+    }
   });
+
+  const selectedOrgId = watch("organizationId");
+  const selectedManagerId = watch("managerId");
 
   useEffect(() => {
     async function fetchData() {
@@ -45,31 +71,44 @@ export default function NewDepartmentPage() {
         const orgsJson = await orgsRes.json();
         const usersJson = await usersRes.json();
 
-        if (orgsJson.success) setOrganizations(orgsJson.data);
-        if (Array.isArray(usersJson)) {
-           setUsers(usersJson);
-        } else if (usersJson.success) {
-           setUsers(usersJson.data);
+        if (!orgsRes.ok) {
+          throw new Error(orgsJson.error?.message || "Failed to load organizations");
         }
+
+        if (!usersRes.ok) {
+          throw new Error(usersJson.error?.message || "Failed to load users");
+        }
+
+        if (orgsJson.success) {
+          setOrganizations(orgsJson.data.map((org: any) => ({
+            value: org.id,
+            label: org.name
+          })));
+        }
+
+        const userData = Array.isArray(usersJson) ? usersJson : usersJson.data || [];
+        setUsers(userData.map((user: any) => ({
+          value: user.id,
+          label: user.name || user.githubUsername || user.email || "Unknown User"
+        })));
+
       } catch (err) {
         console.error("Failed to fetch data:", err);
-        setError("Could not load form data. Please try again later.");
+        setError("Could not load form data. Please refresh and try again.");
       } finally {
-        setIsLoading(false);
+        setIsLoadingData(false);
       }
     }
 
     fetchData();
   }, [session]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: DepartmentFormValues) => {
     if (!session?.user?.accessToken) return;
-
-    setIsSubmitting(true);
     setError(null);
 
     try {
+      // 1. Create the Department
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/departments`, {
         method: "POST",
         headers: {
@@ -77,8 +116,9 @@ export default function NewDepartmentPage() {
           Authorization: `Bearer ${session.user.accessToken}`
         },
         body: JSON.stringify({
-          name: formData.name,
-          organization_id: formData.organizationId
+          name: data.name,
+          organization_id: data.organizationId,
+          description: data.description
         })
       });
 
@@ -87,10 +127,12 @@ export default function NewDepartmentPage() {
         throw new Error(json.message || "Failed to create department");
       }
 
-      // If manager is selected, assign the role
-      const createdDept = await res.json();
-      if (formData.managerId && createdDept.success) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${formData.managerId}/roles`, {
+      const result = await res.json();
+      const createdDeptId = result.data.id;
+
+      // 2. If manager is selected, assign the role
+      if (data.managerId) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${data.managerId}/roles`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -98,7 +140,7 @@ export default function NewDepartmentPage() {
           },
           body: JSON.stringify({
             role: "DEPARTMENT_MANAGER",
-            department_id: createdDept.data.id
+            department_id: createdDeptId
           })
         });
       }
@@ -107,16 +149,15 @@ export default function NewDepartmentPage() {
       router.refresh();
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
+  if (isLoadingData) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground animate-pulse">Loading system data...</p>
         </div>
       </DashboardLayout>
     );
@@ -124,90 +165,110 @@ export default function NewDepartmentPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto space-y-8">
+      <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="space-y-1">
-          <Link href="/departments" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Departments
+          <Link href="/departments" className="group flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-1 group-hover:-translate-x-1 transition-transform" /> Back to Departments
           </Link>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Add New Department</h1>
-          <p className="text-muted-foreground">Create a new academic or operational department within an organization.</p>
+          <p className="text-muted-foreground text-lg">Set up a new academic or operational unit.</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">
-                <GraduationCap className="h-5 w-5" />
+        <Card className="border-border/50 shadow-xl bg-card/50 backdrop-blur-sm">
+          <CardHeader className="pb-4 border-b border-border/50">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                <GraduationCap className="h-6 w-6" />
               </div>
               <div>
-                <CardTitle>Department Details</CardTitle>
-                <CardDescription>Associate this department with a parent organization.</CardDescription>
+                <CardTitle className="text-xl">Department Configuration</CardTitle>
+                <CardDescription>Define your department and its leadership.</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-8">
             {error && (
-              <div className="mb-6 p-4 rounded-lg bg-destructive/10 text-destructive text-sm font-medium">
+              <div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium animate-in zoom-in-95 duration-300">
                 {error}
               </div>
             )}
             
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <Building2 className="h-3 w-3" /> Parent Organization
-                </label>
-                <select 
-                  required
-                  value={formData.organizationId}
-                  onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+              <div className="grid gap-6">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 mb-1">
+                    <Building2 className="h-4 w-4 text-primary" /> Parent Organization
+                  </Label>
+                  <Combobox
+                    options={organizations}
+                    value={selectedOrgId}
+                    onChange={(val) => setValue("organizationId", val, { shouldValidate: true })}
+                    placeholder="Select an organization..."
+                    emptyText="No organizations found."
+                  />
+                  {errors.organizationId && (
+                    <p className="text-xs font-medium text-destructive mt-1">{errors.organizationId.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="mb-1">Department Name</Label>
+                  <Input 
+                    id="name"
+                    placeholder="e.g. Computer Science & Engineering" 
+                    className={cn(errors.name && "border-destructive focus-visible:ring-destructive")}
+                    {...register("name")}
+                  />
+                  {errors.name && (
+                    <p className="text-xs font-medium text-destructive mt-1">{errors.name.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 mb-1">
+                    <UserCircle className="h-4 w-4 text-primary" /> Department Manager (Optional)
+                  </Label>
+                  <Combobox
+                    options={users}
+                    value={selectedManagerId}
+                    onChange={(val) => setValue("managerId", val)}
+                    placeholder="Search for a user to assign..."
+                    emptyText="No users found."
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">This user will be granted the DEPARTMENT_MANAGER role.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description" className="mb-1">Description</Label>
+                  <Textarea 
+                    id="description"
+                    placeholder="Briefly describe the department's focus and responsibilities..." 
+                    className="h-32 resize-none" 
+                    {...register("description")}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-6 flex items-center justify-end gap-4 border-t border-border/50">
+                <Button 
+                  variant="outline" 
+                  type="button" 
+                  onClick={() => router.back()} 
+                  disabled={isSubmitting}
+                  className="px-6"
                 >
-                  <option value="" disabled>Select an organization...</option>
-                  {organizations.map(org => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Department Name</label>
-                <Input 
-                  placeholder="e.g. Computer Science" 
-                  required 
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Department Head / Manager (Optional)</label>
-                <select 
-                  value={formData.managerId}
-                  onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="px-8 gap-2 shadow-lg shadow-primary/20" 
+                  disabled={isSubmitting}
                 >
-                  <option value="">No manager assigned yet</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>{user.name || user.githubUsername}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Description</label>
-                <Textarea 
-                  placeholder="Describe the department's role..." 
-                  className="h-32" 
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3">
-                <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting}>Cancel</Button>
-                <Button type="submit" className="gap-2" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   Create Department
                 </Button>
               </div>
