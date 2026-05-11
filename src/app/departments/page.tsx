@@ -11,13 +11,31 @@ import {
   Building2
 } from "lucide-react";
 
-export default function DepartmentsPage() {
-  const departments = [
-    { id: "1", name: "Computer Science", org: "Engineering Faculty", projects: 12, status: "Active" },
-    { id: "2", name: "Mathematics", org: "Science Institute", projects: 5, status: "Active" },
-    { id: "3", name: "Civil Engineering", org: "Engineering Faculty", projects: 8, status: "Active" },
-    { id: "4", name: "Biology", org: "Science Institute", projects: 3, status: "Inactive" },
-  ];
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+
+async function fetchDepartments(token: string) {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/departments`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.success ? json.data : [];
+  } catch (error) {
+    console.error("Error fetching departments:", error);
+    return [];
+  }
+}
+
+export default async function DepartmentsPage() {
+  const session = await getServerSession(authOptions);
+  let departments: any[] = [];
+
+  if (session?.user?.accessToken) {
+    departments = await fetchDepartments(session.user.accessToken);
+  }
 
   return (
     <DashboardLayout>
@@ -58,6 +76,9 @@ export default function DepartmentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
+                  {departments.length === 0 && (
+                    <tr><td colSpan={5} className="px-6 py-4 text-center text-muted-foreground">No departments found.</td></tr>
+                  )}
                   {departments.map((dept) => (
                     <tr key={dept.id} className="hover:bg-muted/20 transition-colors group">
                       <td className="px-6 py-4">
@@ -70,20 +91,20 @@ export default function DepartmentsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Building2 className="h-3 w-3" /> {dept.org}
+                          <Building2 className="h-3 w-3" /> {dept.organization?.name || dept.org || 'N/A'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <FolderKanban className="h-3 w-3" /> {dept.projects}
+                          <FolderKanban className="h-3 w-3" /> {dept._count?.projects || dept.projects?.length || 0}
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          dept.status === "Active" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                          (dept.status || 'Active') === "Active" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                         )}>
-                          {dept.status}
+                          {dept.status || 'Active'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">

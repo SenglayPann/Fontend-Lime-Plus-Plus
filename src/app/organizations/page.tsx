@@ -61,7 +61,6 @@ export default async function OrganizationsPage() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">Export</Button>
                 <Button variant="outline" size="sm">Filters</Button>
               </div>
             </div>

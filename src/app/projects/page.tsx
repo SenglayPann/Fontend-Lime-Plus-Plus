@@ -1,4 +1,3 @@
-"use client";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,42 +16,31 @@ import {
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-export default function ProjectsPage() {
-  const projects = [
-    { 
-      id: "1", 
-      name: "Lime++ Backend", 
-      org: "Engineering Faculty", 
-      dept: "Computer Science",
-      status: "ACTIVE", 
-      tasks: 24, 
-      members: 5, 
-      avgScore: 88,
-      lastSync: "2 hours ago"
-    },
-    { 
-      id: "2", 
-      name: "Project Alpha", 
-      org: "Science Institute", 
-      dept: "Mathematics",
-      status: "LOCKED", 
-      tasks: 15, 
-      members: 3, 
-      avgScore: 72,
-      lastSync: "1 day ago"
-    },
-    { 
-      id: "3", 
-      name: "Smart City App", 
-      org: "Engineering Faculty", 
-      dept: "Information Technology",
-      status: "ACTIVE", 
-      tasks: 42, 
-      members: 8, 
-      avgScore: 91,
-      lastSync: "Just now"
-    },
-  ];
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+
+async function fetchProjects(token: string) {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.success ? json.data : [];
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    return [];
+  }
+}
+
+export default async function ProjectsPage() {
+  const session = await getServerSession(authOptions);
+  let projects: any[] = [];
+
+  if (session?.user?.accessToken) {
+    projects = await fetchProjects(session.user.accessToken);
+  }
 
   return (
     <DashboardLayout>
@@ -80,6 +68,9 @@ export default function ProjectsPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {projects.length === 0 && (
+            <p className="text-muted-foreground col-span-full">No projects found. Try creating one.</p>
+          )}
           {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
               <Card className="hover:border-primary/50 transition-all cursor-pointer group">
@@ -97,7 +88,7 @@ export default function ProjectsPage() {
                     </span>
                   </div>
                   <CardTitle className="mt-4">{project.name}</CardTitle>
-                  <CardDescription>{project.org} • {project.dept}</CardDescription>
+                  <CardDescription>{project.department?.name || 'No Department'}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 py-4 border-y border-border">
@@ -105,18 +96,18 @@ export default function ProjectsPage() {
                       <p className="text-xs text-muted-foreground flex items-center">
                         <Users className="h-3 w-3 mr-1" /> Members
                       </p>
-                      <p className="text-sm font-semibold">{project.members}</p>
+                      <p className="text-sm font-semibold">{project._count?.members || project.members?.length || 0}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground flex items-center">
-                        <Trophy className="h-3 w-3 mr-1" /> Avg. Score
+                        <FolderKanban className="h-3 w-3 mr-1" /> Repository
                       </p>
-                      <p className="text-sm font-semibold">{project.avgScore}</p>
+                      <p className="text-sm font-semibold truncate max-w-full" title={project.repository}>{project.repository || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" /> Updated {project.lastSync}
+                      <Calendar className="h-3 w-3 mr-1" /> Updated {new Date(project.updatedAt).toLocaleDateString()}
                     </span>
                     <span className="flex items-center text-primary">
                       View Details <Github className="h-3 w-3 ml-1" />
