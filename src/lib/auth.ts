@@ -31,7 +31,12 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          const user = await res.json();
+          const json = await res.json();
+          const user = json.success ? json.data : null;
+          
+          if (!user) {
+            return null;
+          }
 
           // Return user object compatible with our extended User type
           return {
@@ -110,7 +115,8 @@ async function refreshAccessToken(token: any) {
       }),
     });
 
-    const refreshedTokens = await response.json();
+    const json = await response.json();
+    const refreshedTokens = json.success ? json.data : null;
 
     if (!response.ok) {
       throw refreshedTokens;
