@@ -7,7 +7,13 @@ import { useSession } from "next-auth/react";
 import { ArrowLeft, FolderKanban, Github, Loader2, Save } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
@@ -18,7 +24,9 @@ export default function NewProjectPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [departments, setDepartments] = useState<Option[]>([]);
+  const [users, setUsers] = useState<Option[]>([]);
   const [departmentId, setDepartmentId] = useState("");
+  const [projectManagerId, setProjectManagerId] = useState("");
   const [name, setName] = useState("");
   const [repository, setRepository] = useState("");
   const [githubProjectId, setGithubProjectId] = useState("");
@@ -30,20 +38,32 @@ export default function NewProjectPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadDepartments() {
+    async function loadFormData() {
       if (!session?.user?.accessToken) return;
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/departments`, {
-          headers: { Authorization: `Bearer ${session.user.accessToken}` },
-        });
-        const json = await res.json();
+        const authHeaders = {
+          Authorization: `Bearer ${session.user.accessToken}`,
+        };
+        const [departmentsRes, usersRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/departments`, {
+            headers: authHeaders,
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
+            headers: authHeaders,
+          }),
+        ]);
 
-        if (!res.ok) {
-          throw new Error(json.error?.message || "Failed to load departments");
+        const departmentsJson = await departmentsRes.json();
+        const usersJson = await usersRes.json().catch(() => null);
+
+        if (!departmentsRes.ok) {
+          throw new Error(
+            departmentsJson.error?.message || "Failed to load departments",
+          );
         }
 
-        const data = json.success ? json.data : [];
+        const data = departmentsJson.success ? departmentsJson.data : [];
         setDepartments(
           data.map((department: any) => ({
             value: department.id,
@@ -52,14 +72,50 @@ export default function NewProjectPage() {
               : department.name,
           })),
         );
+
+        const fallbackManager: Option | null = session.user.id
+          ? {
+              value: session.user.id,
+              label: session.user.name || session.user.email || "You",
+            }
+          : null;
+
+        const userData = usersRes.ok
+          ? usersJson?.success
+            ? usersJson.data
+            : Array.isArray(usersJson)
+              ? usersJson
+              : []
+          : [];
+        const userOptions: Option[] = userData.map((user: any) => ({
+          value: user.id,
+          label:
+            user.name ||
+            user.githubUsername ||
+            user.email ||
+            user.githubUserId ||
+            user.id,
+        }));
+        const managerOptions: Option[] = userOptions.length
+          ? userOptions
+          : fallbackManager
+            ? [fallbackManager]
+            : [];
+
+        setUsers(managerOptions);
+        setProjectManagerId((current) =>
+          managerOptions.some((option) => option.value === current)
+            ? current
+            : "",
+        );
       } catch (err: any) {
-        setError(err.message || "Failed to load departments");
+        setError(err.message || "Failed to load project form data");
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadDepartments();
+    loadFormData();
   }, [session]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -72,6 +128,7 @@ export default function NewProjectPage() {
     try {
       const body: Record<string, any> = {
         department_id: departmentId,
+        project_manager_id: projectManagerId,
         name,
         repository,
         github_project_id: githubProjectId,
@@ -96,7 +153,9 @@ export default function NewProjectPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        throw new Error(json.error?.message || json.message || "Failed to create project");
+        throw new Error(
+          json.error?.message || json.message || "Failed to create project",
+        );
       }
 
       router.push(`/projects/${json.data.id}`);
@@ -113,7 +172,7 @@ export default function NewProjectPage() {
       <DashboardLayout>
         <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading departments...</p>
+          <p className="text-muted-foreground">Loading project form...</p>
         </div>
       </DashboardLayout>
     );
@@ -123,11 +182,18 @@ export default function NewProjectPage() {
     <DashboardLayout>
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-1">
-          <Link href="/projects" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link
+            href="/projects"
+            className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to Projects
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Create Project</h1>
-          <p className="text-muted-foreground text-lg">Link a GitHub project board to a department.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Create Project
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Link a GitHub project board to a department.
+          </p>
         </div>
 
         <Card>
@@ -138,7 +204,9 @@ export default function NewProjectPage() {
               </div>
               <div>
                 <CardTitle>Project Details</CardTitle>
-                <CardDescription>These fields map to the backend project contract.</CardDescription>
+                <CardDescription>
+                  These fields map to the backend project contract.
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -159,6 +227,21 @@ export default function NewProjectPage() {
                   placeholder="Select a department..."
                   emptyText="No departments found."
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Project Manager</Label>
+                <Combobox
+                  options={users}
+                  value={projectManagerId}
+                  onChange={setProjectManagerId}
+                  placeholder="Select a project manager..."
+                  emptyText="No users found."
+                />
+                <p className="text-xs text-muted-foreground">
+                  This user becomes the project leader and can sync Kanban,
+                  manage tasks, and lock the project.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -206,7 +289,8 @@ export default function NewProjectPage() {
                   placeholder="Token with repository and Project V2 read access"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Used only for validation. Required unless the backend has GITHUB_PERSONAL_ACCESS_TOKEN configured.
+                  Used only for validation. Required unless the backend has
+                  GITHUB_PERSONAL_ACCESS_TOKEN configured.
                 </p>
               </div>
 
@@ -232,11 +316,24 @@ export default function NewProjectPage() {
               </div>
 
               <div className="flex justify-end gap-3 border-t border-border/50 pt-6">
-                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                  disabled={isSubmitting}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" className="gap-2" disabled={isSubmitting || !departmentId}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                <Button
+                  type="submit"
+                  className="gap-2"
+                  disabled={isSubmitting || !departmentId || !projectManagerId}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   {isSubmitting ? "Validating..." : "Create Project"}
                 </Button>
               </div>

@@ -108,17 +108,16 @@ export default async function ProjectDetailPage({
       ? Math.round((mergedPrs / pullRequests.length) * 100)
       : 0;
   const members = project.members || [];
-  const activeMemberIds = new Set<string>();
-  for (const member of members) {
-    if (member.userId) activeMemberIds.add(member.userId);
-    else if (member.user?.id) activeMemberIds.add(member.user.id);
-  }
+  const assignedContributorIds = new Set<string>();
   for (const task of tasks) {
-    if (task.assigneeId) activeMemberIds.add(task.assigneeId);
-    else if (task.assignee?.id) activeMemberIds.add(task.assignee.id);
+    if (task.assigneeId) assignedContributorIds.add(task.assigneeId);
+    else if (task.assignee?.id) assignedContributorIds.add(task.assignee.id);
   }
   const memberCount =
-    activeMemberIds.size || members.length || project._count?.members || 0;
+    assignedContributorIds.size ||
+    members.length ||
+    project._count?.members ||
+    0;
   const averageTaskCompletion =
     memberCount > 0 ? Math.round((completedTasks / memberCount) * 10) : 0;
 
