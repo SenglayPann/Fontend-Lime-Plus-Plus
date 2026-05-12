@@ -3,28 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { 
-  Users, 
-  FolderKanban, 
-  GitPullRequest, 
+import {
+  Users,
+  FolderKanban,
+  GitPullRequest,
   Trophy,
   ArrowUpRight,
   TrendingUp,
-  Bell
+  Bell,
 } from "lucide-react";
 
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-
+import { redirect } from "next/navigation";
 
 async function fetchStats(token: string) {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        next: { revalidate: 60 },
       },
-      next: { revalidate: 60 },
-    });
+    );
     if (!res.ok) return null;
     const json = await res.json();
     return json.success ? json.data : null;
@@ -36,10 +39,13 @@ async function fetchStats(token: string) {
 
 async function fetchActivity(token: string) {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/activity`, {
-      headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/activity`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        next: { revalidate: 60 },
+      },
+    );
     if (!res.ok) return [];
     const json = await res.json();
     return json.success ? json.data : [];
@@ -51,10 +57,13 @@ async function fetchActivity(token: string) {
 
 async function fetchDepartments(token: string) {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/departments`, {
-      headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/departments`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        next: { revalidate: 60 },
+      },
+    );
     if (!res.ok) return [];
     const json = await res.json();
     return json.success ? json.data : [];
@@ -66,7 +75,20 @@ async function fetchDepartments(token: string) {
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  
+  const roles = session?.user?.roles || [];
+  const hasManagementRole = roles.some((role) =>
+    [
+      "ADMIN",
+      "ORGANIZATION_OWNER",
+      "DEPARTMENT_MANAGER",
+      "PROJECT_MANAGER",
+    ].includes(role),
+  );
+
+  if (session && !hasManagementRole) {
+    redirect("/dashboard/my-contributions");
+  }
+
   let statsData = {
     activeStudents: 0,
     ongoingProjects: 0,
@@ -84,10 +106,34 @@ export default async function DashboardPage() {
   }
 
   const stats = [
-    { name: "Active Students", value: (statsData?.activeStudents ?? 0).toString(), icon: Users, change: "Live", color: "text-blue-600" },
-    { name: "Ongoing Projects", value: (statsData?.ongoingProjects ?? 0).toString(), icon: FolderKanban, change: "Live", color: "text-primary" },
-    { name: "Pull Requests", value: (statsData?.pullRequests ?? 0).toString(), icon: GitPullRequest, change: "Live", color: "text-purple-600" },
-    { name: "Avg. Contribution", value: (statsData?.avgContribution ?? 0).toString(), icon: Trophy, change: "Live", color: "text-amber-500" },
+    {
+      name: "Active Students",
+      value: (statsData?.activeStudents ?? 0).toString(),
+      icon: Users,
+      change: "Live",
+      color: "text-blue-600",
+    },
+    {
+      name: "Ongoing Projects",
+      value: (statsData?.ongoingProjects ?? 0).toString(),
+      icon: FolderKanban,
+      change: "Live",
+      color: "text-primary",
+    },
+    {
+      name: "Pull Requests",
+      value: (statsData?.pullRequests ?? 0).toString(),
+      icon: GitPullRequest,
+      change: "Live",
+      color: "text-purple-600",
+    },
+    {
+      name: "Avg. Contribution",
+      value: (statsData?.avgContribution ?? 0).toString(),
+      icon: Trophy,
+      change: "Live",
+      color: "text-amber-500",
+    },
   ];
 
   return (
@@ -95,8 +141,12 @@ export default async function DashboardPage() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back, {session?.user?.name || 'User'}!</h1>
-            <p className="text-muted-foreground mt-2">Here&apos;s the latest activity from the projects you can access.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Welcome back, {session?.user?.name || "User"}!
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Here&apos;s the latest activity from the projects you can access.
+            </p>
           </div>
           <Button variant="outline" size="sm" className="gap-2" disabled>
             <Bell className="h-4 w-4" /> Notifications
@@ -116,7 +166,9 @@ export default async function DashboardPage() {
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground flex items-center mt-1">
                   <TrendingUp className="h-3 w-3 mr-1 text-primary" />
-                  <span className="text-primary font-medium mr-1">{stat.change}</span> 
+                  <span className="text-primary font-medium mr-1">
+                    {stat.change}
+                  </span>
                   from database
                 </p>
               </CardContent>
@@ -131,20 +183,35 @@ export default async function DashboardPage() {
           <Card className="col-span-1">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <p className="text-sm text-muted-foreground">Latest contributions within your current access scope.</p>
+              <p className="text-sm text-muted-foreground">
+                Latest contributions within your current access scope.
+              </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentActivity.length === 0 && <p className="text-sm text-muted-foreground">No recent activity.</p>}
+                {recentActivity.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No recent activity.
+                  </p>
+                )}
                 {recentActivity.map((activity) => (
-                  <Link href={`/projects/${activity.projectId}`} key={activity.id} className="block">
+                  <Link
+                    href={`/projects/${activity.projectId}`}
+                    key={activity.id}
+                    className="block"
+                  >
                     <div className="flex items-center gap-4 rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <GitPullRequest className="h-5 w-5 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{activity.title} in {activity.projectName}</p>
-                        <p className="text-xs text-muted-foreground">by {activity.authorName} • {new Date(activity.createdAt).toLocaleDateString()}</p>
+                        <p className="text-sm font-medium">
+                          {activity.title} in {activity.projectName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          by {activity.authorName} •{" "}
+                          {new Date(activity.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="text-right">
                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
@@ -162,29 +229,49 @@ export default async function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Top Departments</CardTitle>
-                <p className="text-sm text-muted-foreground">Department performance from visible project data.</p>
+                <p className="text-sm text-muted-foreground">
+                  Department performance from visible project data.
+                </p>
               </div>
-              <Link href="/departments" className="text-primary text-sm font-medium hover:underline flex items-center">
+              <Link
+                href="/departments"
+                className="text-primary text-sm font-medium hover:underline flex items-center"
+              >
                 View all <ArrowUpRight className="h-3 w-3 ml-1" />
               </Link>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {topDepartments.length === 0 && <p className="text-sm text-muted-foreground">No department data available.</p>}
+                {topDepartments.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No department data available.
+                  </p>
+                )}
                 {topDepartments.map((dept, idx) => {
-                  const colors = ["bg-primary", "bg-blue-500", "bg-purple-500", "bg-amber-500"];
+                  const colors = [
+                    "bg-primary",
+                    "bg-blue-500",
+                    "bg-purple-500",
+                    "bg-amber-500",
+                  ];
                   const color = colors[idx % colors.length];
                   return (
-                  <div key={dept.name} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{dept.name}</span>
-                      <span className="text-muted-foreground">{dept.avgScore}% Avg.</span>
+                    <div key={dept.name} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{dept.name}</span>
+                        <span className="text-muted-foreground">
+                          {dept.avgScore}% Avg.
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full", color)}
+                          style={{ width: `${Math.min(dept.avgScore, 100)}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className={cn("h-full rounded-full", color)} style={{ width: `${Math.min(dept.avgScore, 100)}%` }} />
-                    </div>
-                  </div>
-                )})}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -193,4 +280,3 @@ export default async function DashboardPage() {
     </DashboardLayout>
   );
 }
-
