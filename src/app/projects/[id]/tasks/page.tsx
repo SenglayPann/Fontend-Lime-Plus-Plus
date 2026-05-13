@@ -1,9 +1,13 @@
 import { getServerSession } from "next-auth/next";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { authOptions } from "@/lib/auth";
+import { canManageProject } from "@/lib/project-access";
 import { ProjectTasksClient } from "@/components/projects/ProjectTasksClient";
 
-async function fetchApi<T>(path: string, token: string): Promise<{ data?: T; error?: string }> {
+async function fetchApi<T>(
+  path: string,
+  token: string,
+): Promise<{ data?: T; error?: string }> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -21,14 +25,20 @@ async function fetchApi<T>(path: string, token: string): Promise<{ data?: T; err
   }
 }
 
-export default async function ProjectTasksPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProjectTasksPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.accessToken) {
     return (
       <DashboardLayout>
-        <p className="text-muted-foreground">You need to sign in to view project tasks.</p>
+        <p className="text-muted-foreground">
+          You need to sign in to view project tasks.
+        </p>
       </DashboardLayout>
     );
   }
@@ -38,6 +48,10 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
     fetchApi<any>(`/projects/${id}`, token),
     fetchApi<any[]>(`/tasks?project_id=${encodeURIComponent(id)}`, token),
   ]);
+  const project = projectResult.data;
+  const isProjectWide = project
+    ? canManageProject(session.user, project)
+    : false;
 
   return (
     <DashboardLayout>
@@ -50,8 +64,10 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
         <ProjectTasksClient
           projectId={id}
           accessToken={token}
-          repository={projectResult.data?.repository}
+          repository={project?.repository}
           initialTasks={tasksResult.data || []}
+          canSync={isProjectWide}
+          isProjectWide={isProjectWide}
         />
       </div>
     </DashboardLayout>

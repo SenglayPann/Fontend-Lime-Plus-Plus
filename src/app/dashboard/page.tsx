@@ -1,6 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
@@ -10,7 +9,6 @@ import {
   Trophy,
   ArrowUpRight,
   TrendingUp,
-  Bell,
 } from "lucide-react";
 
 import { getServerSession } from "next-auth/next";
@@ -76,16 +74,18 @@ async function fetchDepartments(token: string) {
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   const roles = session?.user?.roles || [];
-  const hasManagementRole = roles.some((role) =>
-    [
-      "ADMIN",
-      "ORGANIZATION_OWNER",
-      "DEPARTMENT_MANAGER",
-      "PROJECT_MANAGER",
-    ].includes(role),
-  );
+  const scopes = session?.user?.scopes;
+  const hasManagementScope =
+    roles.includes("ADMIN") ||
+    (scopes?.organizations || []).some(
+      (scope) => scope.role === "ORGANIZATION_MANAGER",
+    ) ||
+    (scopes?.departments || []).some(
+      (scope) => scope.role === "DEPARTMENT_MANAGER",
+    ) ||
+    (scopes?.projects || []).some((scope) => scope.role === "PROJECT_MANAGER");
 
-  if (session && !hasManagementRole) {
+  if (session && !hasManagementScope) {
     redirect("/dashboard/my-contributions");
   }
 
@@ -148,9 +148,6 @@ export default async function DashboardPage() {
               Here&apos;s the latest activity from the projects you can access.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2" disabled>
-            <Bell className="h-4 w-4" /> Notifications
-          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

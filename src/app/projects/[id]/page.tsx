@@ -4,12 +4,14 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ClipboardList,
   ExternalLink,
-  FolderKanban,
   Github,
+  History,
   Lock,
   Trophy,
   Unlock,
+  UserCog,
   Users,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -23,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { authOptions } from "@/lib/auth";
+import { canManageProject, canManageProjectScope } from "@/lib/project-access";
 import { ContributionPieChart } from "@/components/charts/ContributionPieChart";
 import { TeamPerformanceBar } from "@/components/charts/TeamPerformanceBar";
 import { ReportDownloadButton } from "@/components/reports/ReportDownloadButton";
@@ -94,6 +97,9 @@ export default async function ProjectDetailPage({
   const tasks = tasksResult.data || [];
   const pullRequests = prsResult.data || [];
   const repoUrl = githubUrl(project.repository);
+  const members = project.members || [];
+  const canManageCurrentProject = canManageProject(session.user, project);
+  const canLockProject = canManageProjectScope(session.user, project);
   const completedTasks = tasks.filter((task) => task.status === "DONE").length;
   const activeTasks = tasks.filter(
     (task) => task.status === "IN_PROGRESS",
@@ -107,7 +113,6 @@ export default async function ProjectDetailPage({
     pullRequests.length > 0
       ? Math.round((mergedPrs / pullRequests.length) * 100)
       : 0;
-  const members = project.members || [];
   const assignedContributorIds = new Set<string>();
   for (const task of tasks) {
     if (task.assigneeId) assignedContributorIds.add(task.assigneeId);
@@ -120,6 +125,9 @@ export default async function ProjectDetailPage({
     0;
   const averageTaskCompletion =
     memberCount > 0 ? Math.round((completedTasks / memberCount) * 10) : 0;
+  const linkedTasks = tasks.filter(
+    (task) => (task.pullRequests || []).length > 0,
+  ).length;
 
   const contributionData = [
     { name: "Done Tasks", value: completedTasks },
@@ -160,6 +168,59 @@ export default async function ProjectDetailPage({
       : [{ name: "No Activity", value: 1 }];
   const leaderboardData =
     teamData.length > 0 ? teamData : [{ name: "No Members", score: 0 }];
+  const statCards = canManageCurrentProject
+    ? [
+        {
+          label: "Completion Rate",
+          value: `${completionRate}%`,
+          icon: CheckCircle2,
+          color: "text-primary",
+        },
+        {
+          label: "Active Members",
+          value: memberCount,
+          icon: Users,
+          color: "text-blue-600",
+        },
+        {
+          label: "PR Acceptance",
+          value: `${prAcceptance}%`,
+          icon: Github,
+          color: "text-purple-600",
+        },
+        {
+          label: "Avg. Done Tasks",
+          value: averageTaskCompletion / 10,
+          icon: Trophy,
+          color: "text-amber-500",
+        },
+      ]
+    : [
+        {
+          label: "My Completion",
+          value: `${completionRate}%`,
+          icon: CheckCircle2,
+          color: "text-primary",
+        },
+        {
+          label: "My Tasks",
+          value: totalTasks,
+          icon: ClipboardList,
+          color: "text-blue-600",
+        },
+        {
+          label: "Merged PRs",
+          value: mergedPrs,
+          icon: Github,
+          color: "text-purple-600",
+        },
+        {
+          label: "Done Tasks",
+          value: completedTasks,
+          icon: Trophy,
+          color: "text-amber-500",
+        },
+      ];
 
   return (
     <DashboardLayout>
@@ -194,19 +255,56 @@ export default async function ProjectDetailPage({
             </div>
             <p className="text-muted-foreground">
               {project.department?.name || "No department"}
-              {project.repository ? ` · ${project.repository}` : ""}
+              {project.repository ? ` - ${project.repository}` : ""}
             </p>
           </div>
 
           <div className="flex flex-wrap items-start gap-3">
-            <ReportDownloadButton projectId={id} type="project" format="csv" />
-            <ReportDownloadButton projectId={id} type="project" format="pdf" />
-            <div className="hidden h-6 w-px bg-border mx-1 sm:block" />
-            <ProjectActions
-              projectId={id}
-              accessToken={token}
-              isLocked={project.status === "LOCKED"}
-            />
+            <Button variant="outline" className="gap-2" asChild>
+              <Link href={`/projects/${id}/tasks`}>
+                <ClipboardList className="h-4 w-4" /> Tasks
+              </Link>
+            </Button>
+            <Button variant="outline" className="gap-2" asChild>
+              <Link href={`/projects/${id}/members`}>
+                <UserCog className="h-4 w-4" /> Members
+              </Link>
+            </Button>
+            {canManageCurrentProject && (
+              <Button variant="outline" className="gap-2" asChild>
+                <Link href={`/projects/${id}/audit`}>
+                  <History className="h-4 w-4" /> Audit
+                </Link>
+              </Button>
+            )}
+            {canManageCurrentProject ? (
+              <>
+                <ReportDownloadButton
+                  projectId={id}
+                  type="project"
+                  format="csv"
+                />
+                <ReportDownloadButton
+                  projectId={id}
+                  type="project"
+                  format="pdf"
+                />
+                <div className="hidden h-6 w-px bg-border mx-1 sm:block" />
+                <ProjectActions
+                  projectId={id}
+                  accessToken={token}
+                  isLocked={project.status === "LOCKED"}
+                  canLockProject={canLockProject}
+                />
+              </>
+            ) : (
+              <ReportDownloadButton
+                projectId={id}
+                userId={session.user.id}
+                type="individual"
+                format="pdf"
+              />
+            )}
           </div>
         </div>
 
@@ -218,32 +316,7 @@ export default async function ProjectDetailPage({
         )}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              label: "Completion Rate",
-              value: `${completionRate}%`,
-              icon: CheckCircle2,
-              color: "text-primary",
-            },
-            {
-              label: "Active Members",
-              value: memberCount,
-              icon: Users,
-              color: "text-blue-600",
-            },
-            {
-              label: "PR Acceptance",
-              value: `${prAcceptance}%`,
-              icon: Github,
-              color: "text-purple-600",
-            },
-            {
-              label: "Avg. Done Tasks",
-              value: averageTaskCompletion / 10,
-              icon: Trophy,
-              color: "text-amber-500",
-            },
-          ].map((stat) => (
+          {statCards.map((stat) => (
             <Card key={stat.label}>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -270,9 +343,13 @@ export default async function ProjectDetailPage({
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Activity Mix</CardTitle>
+              <CardTitle>
+                {canManageCurrentProject ? "Activity Mix" : "My Activity Mix"}
+              </CardTitle>
               <CardDescription>
-                Current project activity from tasks and pull requests.
+                {canManageCurrentProject
+                  ? "Current project activity from tasks and pull requests."
+                  : "Your assigned task and pull request activity."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -280,17 +357,43 @@ export default async function ProjectDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Leaderboard</CardTitle>
-              <CardDescription>
-                Completed tasks by project member.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TeamPerformanceBar data={leaderboardData} />
-            </CardContent>
-          </Card>
+          {canManageCurrentProject ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Team Leaderboard</CardTitle>
+                <CardDescription>
+                  Completed tasks by project member.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TeamPerformanceBar data={leaderboardData} />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>My Evidence</CardTitle>
+                <CardDescription>
+                  Scoring evidence found so far.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ["Linked Tasks", linkedTasks],
+                  ["Pull Requests", pullRequests.length],
+                  ["Merged", mergedPrs],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-border p-4"
+                  >
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-2xl font-bold">{value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -364,7 +467,7 @@ export default async function ProjectDetailPage({
                   <p className="text-xs text-muted-foreground">
                     {project.platform || "GITHUB"}
                     {project.externalProjectId
-                      ? ` · ${project.externalProjectId}`
+                      ? ` - ${project.externalProjectId}`
                       : ""}
                   </p>
                 </div>

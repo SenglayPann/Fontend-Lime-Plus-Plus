@@ -22,7 +22,16 @@ type Option = { value: string; label: string };
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const roles = session?.user?.roles || [];
+  const hasOrganizationScope = (
+    session?.user?.scopes?.organizations || []
+  ).some((scope) => scope.role === "ORGANIZATION_MANAGER");
+  const hasDepartmentScope = (session?.user?.scopes?.departments || []).some(
+    (scope) => scope.role === "DEPARTMENT_MANAGER",
+  );
+  const canCreateProject =
+    roles.includes("ADMIN") || hasOrganizationScope || hasDepartmentScope;
   const [departments, setDepartments] = useState<Option[]>([]);
   const [users, setUsers] = useState<Option[]>([]);
   const [departmentId, setDepartmentId] = useState("");
@@ -39,7 +48,11 @@ export default function NewProjectPage() {
 
   useEffect(() => {
     async function loadFormData() {
-      if (!session?.user?.accessToken) return;
+      if (status === "loading") return;
+      if (!session?.user?.accessToken || !canCreateProject) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const authHeaders = {
@@ -64,8 +77,27 @@ export default function NewProjectPage() {
         }
 
         const data = departmentsJson.success ? departmentsJson.data : [];
+        const organizationScopeIds = new Set(
+          (session.user.scopes?.organizations || [])
+            .filter((scope) => scope.role === "ORGANIZATION_MANAGER")
+            .map((scope) => scope.id),
+        );
+        const departmentScopeIds = new Set(
+          (session.user.scopes?.departments || [])
+            .filter((scope) => scope.role === "DEPARTMENT_MANAGER")
+            .map((scope) => scope.id),
+        );
+        const creatableDepartments = roles.includes("ADMIN")
+          ? data
+          : data.filter(
+              (department: any) =>
+                departmentScopeIds.has(department.id) ||
+                organizationScopeIds.has(
+                  department.organizationId || department.organization?.id,
+                ),
+            );
         setDepartments(
-          data.map((department: any) => ({
+          creatableDepartments.map((department: any) => ({
             value: department.id,
             label: department.organization?.name
               ? `${department.name} (${department.organization.name})`
@@ -116,7 +148,7 @@ export default function NewProjectPage() {
     }
 
     loadFormData();
-  }, [session]);
+  }, [canCreateProject, session, status]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -128,11 +160,14 @@ export default function NewProjectPage() {
     try {
       const body: Record<string, any> = {
         department_id: departmentId,
-        project_manager_id: projectManagerId,
         name,
         repository,
         github_project_id: githubProjectId,
       };
+
+      if (projectManagerId) {
+        body.project_manager_id = projectManagerId;
+      }
 
       if (evalStart || evalEnd) {
         body.evaluation_window = {
@@ -173,6 +208,16 @@ export default function NewProjectPage() {
         <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Loading project form...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!canCreateProject) {
+    return (
+      <DashboardLayout>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm font-medium text-destructive">
+          You do not have permission to create projects.
         </div>
       </DashboardLayout>
     );
@@ -240,7 +285,7 @@ export default function NewProjectPage() {
                 />
                 <p className="text-xs text-muted-foreground">
                   This user becomes the project leader and can sync Kanban,
-                  manage tasks, and lock the project.
+                  manage tasks, and maintain the project roster.
                 </p>
               </div>
 

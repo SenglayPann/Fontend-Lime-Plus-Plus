@@ -7,14 +7,16 @@ export default async function Home() {
   if (!session) redirect("/login");
 
   const roles = session.user.roles || [];
-  const hasManagementRole = roles.some((role) =>
-    [
-      "ADMIN",
-      "ORGANIZATION_OWNER",
-      "DEPARTMENT_MANAGER",
-      "PROJECT_MANAGER",
-    ].includes(role),
-  );
+  const scopes = session.user.scopes;
+  const hasManagementScope =
+    roles.includes("ADMIN") ||
+    (scopes?.organizations || []).some(
+      (scope) => scope.role === "ORGANIZATION_MANAGER",
+    ) ||
+    (scopes?.departments || []).some(
+      (scope) => scope.role === "DEPARTMENT_MANAGER",
+    ) ||
+    (scopes?.projects || []).some((scope) => scope.role === "PROJECT_MANAGER");
 
-  redirect(hasManagementRole ? "/dashboard" : "/dashboard/my-contributions");
+  redirect(hasManagementScope ? "/dashboard" : "/dashboard/my-contributions");
 }

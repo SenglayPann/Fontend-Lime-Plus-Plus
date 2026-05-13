@@ -1,4 +1,3 @@
-
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -6,11 +5,16 @@ import { ProjectListClient } from "@/components/projects/ProjectListClient";
 
 async function fetchProjects(token: string, departmentId?: string) {
   try {
-    const query = departmentId ? `?department_id=${encodeURIComponent(departmentId)}` : "";
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects${query}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 0 },
-    });
+    const query = departmentId
+      ? `?department_id=${encodeURIComponent(departmentId)}`
+      : "";
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/projects${query}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        next: { revalidate: 0 },
+      },
+    );
     if (!res.ok) return [];
     const json = await res.json();
     return json.success ? json.data : [];
@@ -27,7 +31,17 @@ export default async function ProjectsPage({
 }) {
   const session = await getServerSession(authOptions);
   const resolvedSearchParams = await searchParams;
-  const departmentId = resolvedSearchParams?.department_id || resolvedSearchParams?.departmentId;
+  const departmentId =
+    resolvedSearchParams?.department_id || resolvedSearchParams?.departmentId;
+  const roles = session?.user?.roles || [];
+  const hasOrganizationScope = (
+    session?.user?.scopes?.organizations || []
+  ).some((scope) => scope.role === "ORGANIZATION_MANAGER");
+  const hasDepartmentScope = (session?.user?.scopes?.departments || []).some(
+    (scope) => scope.role === "DEPARTMENT_MANAGER",
+  );
+  const canCreateProject =
+    roles.includes("ADMIN") || hasOrganizationScope || hasDepartmentScope;
   let projects: any[] = [];
 
   if (session?.user?.accessToken) {
@@ -36,7 +50,11 @@ export default async function ProjectsPage({
 
   return (
     <DashboardLayout>
-      <ProjectListClient initialProjects={projects} departmentId={departmentId} />
+      <ProjectListClient
+        initialProjects={projects}
+        departmentId={departmentId}
+        canCreateProject={canCreateProject}
+      />
     </DashboardLayout>
   );
 }

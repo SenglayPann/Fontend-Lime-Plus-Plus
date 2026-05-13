@@ -1,24 +1,22 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Building2, 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  ExternalLink,
-  Users
-} from "lucide-react";
+import { Building2, Plus, ExternalLink, Users } from "lucide-react";
+import Link from "next/link";
 
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 async function fetchOrganizations(token: string) {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations`, {
-      headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/organizations`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        next: { revalidate: 60 },
+      },
+    );
     if (!res.ok) return [];
     const json = await res.json();
     return json.success ? json.data : [];
@@ -31,6 +29,8 @@ async function fetchOrganizations(token: string) {
 export default async function OrganizationsPage() {
   const session = await getServerSession(authOptions);
   let organizations: any[] = [];
+  const roles = session?.user?.roles || [];
+  const canCreateOrganization = roles.includes("ADMIN");
 
   if (session?.user?.accessToken) {
     organizations = await fetchOrganizations(session.user.accessToken);
@@ -41,30 +41,23 @@ export default async function OrganizationsPage() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Organizations</h1>
-            <p className="text-muted-foreground mt-2">Manage all top-level organizations and their licenses.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Organizations
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Manage all top-level organizations and their licenses.
+            </p>
           </div>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Add Organization
-          </Button>
+          {canCreateOrganization && (
+            <Button className="gap-2" asChild>
+              <Link href="/organizations/new">
+                <Plus className="h-4 w-4" /> Add Organization
+              </Link>
+            </Button>
+          )}
         </div>
 
         <Card>
-          <CardHeader className="border-b border-border bg-muted/20 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Filter organizations..."
-                  className="h-9 w-full rounded-md border border-input bg-background pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">Filters</Button>
-              </div>
-            </div>
-          </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -73,51 +66,78 @@ export default async function OrganizationsPage() {
                     <th className="px-6 py-4">Organization Name</th>
                     <th className="px-6 py-4">License Plan</th>
                     <th className="px-6 py-4">Departments</th>
-                    <th className="px-6 py-4">Total Users</th>
+                    <th className="px-6 py-4">Scoped Roles</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {organizations.length === 0 && (
-                    <tr><td colSpan={6} className="px-6 py-4 text-center text-muted-foreground">No organizations found.</td></tr>
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-6 py-4 text-center text-muted-foreground"
+                      >
+                        No organizations found.
+                      </td>
+                    </tr>
                   )}
                   {organizations.map((org) => (
-                    <tr key={org.id} className="hover:bg-muted/20 transition-colors group">
+                    <tr
+                      key={org.id}
+                      className="hover:bg-muted/20 transition-colors group"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary">
                             <Building2 className="h-4 w-4" />
                           </div>
-                          <span className="font-medium text-foreground">{org.name}</span>
+                          <span className="font-medium text-foreground">
+                            {org.name}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                          {org.license || "Standard"}
+                          {org.licensePlan || org.license || "Standard"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-muted-foreground">{org.departments?.length || 0}</td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {org._count?.departments ||
+                          org.departments?.length ||
+                          0}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Users className="h-3 w-3" /> {org.users?.length || org._count?.users || 0}
+                          <Users className="h-3 w-3" />{" "}
+                          {org._count?.userRoles || org.users?.length || 0}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          (org.status || "Active") === "Active" ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700"
-                        )}>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                            (org.status || "Active") === "Active"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-amber-100 text-amber-700",
+                          )}
+                        >
                           {org.status || "Active"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            asChild
+                          >
+                            <Link
+                              href={`/departments?organization_id=${org.id}`}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Link>
                           </Button>
                         </div>
                       </td>
@@ -128,10 +148,16 @@ export default async function OrganizationsPage() {
             </div>
           </CardContent>
           <div className="flex items-center justify-between border-t border-border px-6 py-4 bg-muted/10">
-            <p className="text-xs text-muted-foreground">Showing {organizations.length} results</p>
+            <p className="text-xs text-muted-foreground">
+              Showing {organizations.length} results
+            </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>Previous</Button>
-              <Button variant="outline" size="sm" disabled>Next</Button>
+              <Button variant="outline" size="sm" disabled>
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" disabled>
+                Next
+              </Button>
             </div>
           </div>
         </Card>
@@ -139,5 +165,3 @@ export default async function OrganizationsPage() {
     </DashboardLayout>
   );
 }
-
-import { cn } from "@/lib/utils";

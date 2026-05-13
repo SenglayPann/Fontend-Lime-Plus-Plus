@@ -21,11 +21,14 @@ export const authOptions: NextAuthOptions = {
         // and fetch user details from backend to confirm validity.
 
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-            headers: {
-              Authorization: `Bearer ${credentials.accessToken}`,
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+            {
+              headers: {
+                Authorization: `Bearer ${credentials.accessToken}`,
+              },
             },
-          });
+          );
 
           if (!res.ok) {
             return null;
@@ -33,7 +36,7 @@ export const authOptions: NextAuthOptions = {
 
           const json = await res.json();
           const user = json.success ? json.data : null;
-          
+
           if (!user) {
             return null;
           }
@@ -44,11 +47,15 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             email: user.email,
             image: user.avatarUrl,
-            role: user.roles?.[0] || 'USER',
-            roles: Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : ['USER'],
+            role: user.roles?.[0] || "USER",
+            roles:
+              Array.isArray(user.roles) && user.roles.length > 0
+                ? user.roles
+                : ["USER"],
+            scopes: user.scopes,
             accessToken: credentials.accessToken,
             refreshToken: credentials.refreshToken,
-            expiresIn: parseInt(credentials.expiresIn || '900', 10),
+            expiresIn: parseInt(credentials.expiresIn || "900", 10),
           };
         } catch (error) {
           console.error("Error authorizing user:", error);
@@ -66,6 +73,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           role: user.role,
           roles: user.roles,
+          scopes: user.scopes,
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           expiresIn: user.expiresIn,
@@ -85,6 +93,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id as string;
       session.user.role = token.role as string;
       session.user.roles = (token.roles as string[]) || [session.user.role];
+      session.user.scopes = token.scopes as typeof session.user.scopes;
       session.user.accessToken = token.accessToken as string;
       session.user.refreshToken = token.refreshToken as string;
       session.user.expiresIn = token.expiresIn as number;
@@ -93,8 +102,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/login',
-    error: '/login', // Error code passed in query string as ?error=
+    signIn: "/login",
+    error: "/login", // Error code passed in query string as ?error=
   },
   session: {
     strategy: "jwt",
@@ -108,15 +117,18 @@ export const authOptions: NextAuthOptions = {
  */
 async function refreshAccessToken(token: any) {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          refreshToken: token.refreshToken,
+        }),
       },
-      body: JSON.stringify({
-        refreshToken: token.refreshToken,
-      }),
-    });
+    );
 
     const json = await response.json();
     const refreshedTokens = json.success ? json.data : null;

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
+  Building2,
   LayoutDashboard,
   GraduationCap,
   FolderKanban,
   LogOut,
   Trophy,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,37 +19,37 @@ const navigation = [
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: [
-      "ADMIN",
-      "ORGANIZATION_OWNER",
-      "DEPARTMENT_MANAGER",
-      "PROJECT_MANAGER",
-    ],
+    visibility: "management",
   },
   {
     name: "My Contributions",
     href: "/dashboard/my-contributions",
     icon: Trophy,
-    roles: [
-      "ADMIN",
-      "ORGANIZATION_OWNER",
-      "DEPARTMENT_MANAGER",
-      "PROJECT_MANAGER",
-      "PROJECT_MEMBER",
-      "USER",
-    ],
+    visibility: "all",
+  },
+  {
+    name: "Organizations",
+    href: "/organizations",
+    icon: Building2,
+    visibility: "organizations",
   },
   {
     name: "Departments",
     href: "/departments",
     icon: GraduationCap,
-    roles: ["ADMIN", "DEPARTMENT_MANAGER"],
+    visibility: "departments",
   },
   {
     name: "Projects",
     href: "/projects",
     icon: FolderKanban,
-    roles: ["ADMIN", "DEPARTMENT_MANAGER", "PROJECT_MANAGER", "PROJECT_MEMBER"],
+    visibility: "projects",
+  },
+  {
+    name: "Users & Roles",
+    href: "/users",
+    icon: Users,
+    visibility: "users",
   },
 ];
 
@@ -58,10 +60,41 @@ export function Sidebar() {
   const userRoles = session?.user?.roles?.length
     ? session.user.roles
     : [session?.user?.role || "PROJECT_MEMBER"];
-
-  const filteredNavigation = navigation.filter((item) =>
-    item.roles.some((role) => userRoles.includes(role)),
+  const scopes = session?.user?.scopes;
+  const isAdmin = userRoles.includes("ADMIN");
+  const hasOrganizationScope = (scopes?.organizations || []).some(
+    (scope) => scope.role === "ORGANIZATION_MANAGER",
   );
+  const hasDepartmentScope = (scopes?.departments || []).some(
+    (scope) => scope.role === "DEPARTMENT_MANAGER",
+  );
+  const hasProjectManagerScope = (scopes?.projects || []).some(
+    (scope) => scope.role === "PROJECT_MANAGER",
+  );
+  const hasProjectScope = (scopes?.projects || []).length > 0;
+  const hasManagementScope =
+    isAdmin ||
+    hasOrganizationScope ||
+    hasDepartmentScope ||
+    hasProjectManagerScope;
+
+  const filteredNavigation = navigation.filter((item) => {
+    if (item.visibility === "all") return true;
+    if (item.visibility === "management") return hasManagementScope;
+    if (item.visibility === "organizations") {
+      return isAdmin || hasOrganizationScope;
+    }
+    if (item.visibility === "departments") {
+      return isAdmin || hasOrganizationScope || hasDepartmentScope;
+    }
+    if (item.visibility === "projects") {
+      return (
+        isAdmin || hasOrganizationScope || hasDepartmentScope || hasProjectScope
+      );
+    }
+    if (item.visibility === "users") return hasManagementScope;
+    return false;
+  });
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">

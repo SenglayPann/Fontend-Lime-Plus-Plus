@@ -23,8 +23,16 @@ type Task = {
   externalTaskId?: string | null;
   title: string;
   status: string;
-  assignee?: { name?: string | null; githubUsername?: string | null; email?: string | null } | null;
-  pullRequests?: Array<{ externalPrId?: string | null; status?: string | null; url?: string | null }>;
+  assignee?: {
+    name?: string | null;
+    githubUsername?: string | null;
+    email?: string | null;
+  } | null;
+  pullRequests?: Array<{
+    externalPrId?: string | null;
+    status?: string | null;
+    url?: string | null;
+  }>;
 };
 
 interface ProjectTasksClientProps {
@@ -32,6 +40,8 @@ interface ProjectTasksClientProps {
   accessToken: string;
   repository?: string | null;
   initialTasks: Task[];
+  canSync: boolean;
+  isProjectWide: boolean;
 }
 
 function prUrl(repository: string | null | undefined, task: Task) {
@@ -43,7 +53,14 @@ function prUrl(repository: string | null | undefined, task: Task) {
   return `https://github.com/${repository}/pull/${prNumber}`;
 }
 
-export function ProjectTasksClient({ projectId, accessToken, repository, initialTasks }: ProjectTasksClientProps) {
+export function ProjectTasksClient({
+  projectId,
+  accessToken,
+  repository,
+  initialTasks,
+  canSync,
+  isProjectWide,
+}: ProjectTasksClientProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -54,11 +71,17 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
     const normalizedQuery = query.trim().toLowerCase();
 
     return initialTasks.filter((task) => {
-      const assignee = task.assignee?.name || task.assignee?.githubUsername || task.assignee?.email || "";
+      const assignee =
+        task.assignee?.name ||
+        task.assignee?.githubUsername ||
+        task.assignee?.email ||
+        "";
       const matchesQuery =
         !normalizedQuery ||
         task.title.toLowerCase().includes(normalizedQuery) ||
-        (task.externalTaskId || task.id).toLowerCase().includes(normalizedQuery) ||
+        (task.externalTaskId || task.id)
+          .toLowerCase()
+          .includes(normalizedQuery) ||
         assignee.toLowerCase().includes(normalizedQuery);
 
       const matchesStatus = status === "ALL" || task.status === status;
@@ -72,14 +95,19 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
     setError(null);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/tasks/sync`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/tasks/sync`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
       const json = await res.json();
 
       if (!res.ok) {
-        throw new Error(json.error?.message || json.message || "Failed to sync tasks");
+        throw new Error(
+          json.error?.message || json.message || "Failed to sync tasks",
+        );
       }
 
       router.refresh();
@@ -94,19 +122,38 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <Link href={`/projects/${projectId}`} className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link
+            href={`/projects/${projectId}`}
+            className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
             Back to Overview
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Project Tasks</h1>
-          <p className="text-muted-foreground">Detailed view of task-to-PR linkage and completion status.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {isProjectWide ? "Project Tasks" : "My Tasks"}
+          </h1>
+          <p className="text-muted-foreground">
+            {isProjectWide
+              ? "Task-to-PR linkage and completion status."
+              : "Assigned tasks and linked pull request evidence."}
+          </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <Button className="gap-2" onClick={syncTasks} disabled={isSyncing}>
-            {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Sync Kanban
-          </Button>
-          {error && <p className="max-w-md text-right text-xs font-medium text-destructive">{error}</p>}
-        </div>
+        {canSync && (
+          <div className="flex flex-col items-end gap-2">
+            <Button className="gap-2" onClick={syncTasks} disabled={isSyncing}>
+              {isSyncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Sync Kanban
+            </Button>
+            {error && (
+              <p className="max-w-md text-right text-xs font-medium text-destructive">
+                {error}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <Card>
@@ -155,7 +202,10 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
               <tbody className="divide-y divide-border">
                 {tasks.length === 0 && (
                   <tr>
-                    <td className="px-6 py-8 text-center text-muted-foreground" colSpan={6}>
+                    <td
+                      className="px-6 py-8 text-center text-muted-foreground"
+                      colSpan={6}
+                    >
                       No tasks match the current search or filter.
                     </td>
                   </tr>
@@ -163,12 +213,23 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
                 {tasks.map((task) => {
                   const primaryPr = task.pullRequests?.[0];
                   const url = prUrl(repository, task);
-                  const assignee = task.assignee?.name || task.assignee?.githubUsername || task.assignee?.email || "Unassigned";
+                  const assignee =
+                    task.assignee?.name ||
+                    task.assignee?.githubUsername ||
+                    task.assignee?.email ||
+                    "Unassigned";
 
                   return (
-                    <tr key={task.id} className="hover:bg-muted/20 transition-colors group">
-                      <td className="px-6 py-4 font-mono font-medium text-primary">{task.externalTaskId || task.id}</td>
-                      <td className="px-6 py-4 font-medium text-foreground">{task.title}</td>
+                    <tr
+                      key={task.id}
+                      className="hover:bg-muted/20 transition-colors group"
+                    >
+                      <td className="px-6 py-4 font-mono font-medium text-primary">
+                        {task.externalTaskId || task.id}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-foreground">
+                        {task.title}
+                      </td>
                       <td className="px-6 py-4">
                         <span
                           className={cn(
@@ -182,11 +243,17 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
                                   : "bg-muted text-muted-foreground",
                           )}
                         >
-                          {task.status === "DONE" ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          {task.status === "DONE" ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <Circle className="h-3 w-3" />
+                          )}
                           {task.status.replace("_", " ")}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-muted-foreground">{assignee}</td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {assignee}
+                      </td>
                       <td className="px-6 py-4">
                         {primaryPr ? (
                           <div className="flex items-center gap-2">
@@ -215,13 +282,29 @@ export function ProjectTasksClient({ projectId, accessToken, repository, initial
                       </td>
                       <td className="px-6 py-4 text-right">
                         {url ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <a href={url} target="_blank" rel="noreferrer" aria-label="Open pull request">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            asChild
+                          >
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label="Open pull request"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" disabled aria-label="No pull request link">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled
+                            aria-label="No pull request link"
+                          >
                             <ExternalLink className="h-4 w-4" />
                           </Button>
                         )}

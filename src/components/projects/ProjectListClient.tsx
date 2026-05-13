@@ -13,7 +13,13 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type Project = {
@@ -31,9 +37,14 @@ type Project = {
 interface ProjectListClientProps {
   initialProjects: Project[];
   departmentId?: string;
+  canCreateProject: boolean;
 }
 
-export function ProjectListClient({ initialProjects, departmentId }: ProjectListClientProps) {
+export function ProjectListClient({
+  initialProjects,
+  departmentId,
+  canCreateProject,
+}: ProjectListClientProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
 
@@ -45,7 +56,9 @@ export function ProjectListClient({ initialProjects, departmentId }: ProjectList
         !normalizedQuery ||
         project.name.toLowerCase().includes(normalizedQuery) ||
         (project.repository || "").toLowerCase().includes(normalizedQuery) ||
-        (project.department?.name || "").toLowerCase().includes(normalizedQuery);
+        (project.department?.name || "")
+          .toLowerCase()
+          .includes(normalizedQuery);
 
       const matchesStatus = status === "ALL" || project.status === status;
 
@@ -57,18 +70,22 @@ export function ProjectListClient({ initialProjects, departmentId }: ProjectList
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Projects</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Projects
+          </h1>
           <p className="text-muted-foreground mt-2">
             {departmentId
               ? "Projects filtered by the selected department."
               : "Oversee and manage active evaluation projects."}
           </p>
         </div>
-        <Button className="gap-2" asChild>
-          <Link href="/projects/new">
-            <Plus className="h-4 w-4" /> Create Project
-          </Link>
-        </Button>
+        {canCreateProject && (
+          <Button className="gap-2" asChild>
+            <Link href="/projects/new">
+              <Plus className="h-4 w-4" /> Create Project
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -129,7 +146,9 @@ export function ProjectListClient({ initialProjects, departmentId }: ProjectList
                     </span>
                   </div>
                   <CardTitle className="mt-4">{project.name}</CardTitle>
-                  <CardDescription>{project.department?.name || "No Department"}</CardDescription>
+                  <CardDescription>
+                    {project.department?.name || "No Department"}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 py-4 border-y border-border">
@@ -138,14 +157,19 @@ export function ProjectListClient({ initialProjects, departmentId }: ProjectList
                         <Users className="h-3 w-3 mr-1" /> Members
                       </p>
                       <p className="text-sm font-semibold">
-                        {project._count?.members || project.members?.length || 0}
+                        {project._count?.members ||
+                          project.members?.length ||
+                          0}
                       </p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground flex items-center">
                         <FolderKanban className="h-3 w-3 mr-1" /> Repository
                       </p>
-                      <p className="text-sm font-semibold truncate max-w-full" title={project.repository || undefined}>
+                      <p
+                        className="text-sm font-semibold truncate max-w-full"
+                        title={project.repository || undefined}
+                      >
                         {project.repository || "N/A"}
                       </p>
                     </div>
@@ -153,7 +177,9 @@ export function ProjectListClient({ initialProjects, departmentId }: ProjectList
                   <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center">
                       <Calendar className="h-3 w-3 mr-1" />
-                      {updatedAt ? `Updated ${new Date(updatedAt).toLocaleDateString()}` : "No update date"}
+                      {updatedAt
+                        ? `Updated ${new Date(updatedAt).toLocaleDateString()}`
+                        : "No update date"}
                     </span>
                     <span className="flex items-center text-primary">
                       View Details <Github className="h-3 w-3 ml-1" />
