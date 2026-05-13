@@ -77,6 +77,7 @@ export function Sidebar() {
     hasOrganizationScope ||
     hasDepartmentScope ||
     hasProjectManagerScope;
+  const canAssignRoles = isAdmin || hasOrganizationScope;
 
   const filteredNavigation = navigation.filter((item) => {
     if (item.visibility === "all") return true;
@@ -132,7 +133,7 @@ export function Sidebar() {
                     : "text-sidebar-foreground/70 group-hover:text-primary",
                 )}
               />
-              {item.name}
+              {item.href === "/users" && !canAssignRoles ? "Users" : item.name}
             </Link>
           );
         })}

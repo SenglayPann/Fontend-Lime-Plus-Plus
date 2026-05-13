@@ -103,6 +103,10 @@ export function UsersRolesClient({
     (scope) => scope.role === "ORGANIZATION_MANAGER",
   );
   const canAssignRoles = isAdmin || hasOrganizationScope;
+  const pageTitle = canAssignRoles ? "Users & Roles" : "Visible Users";
+  const pageDescription = canAssignRoles
+    ? "Assign organization and department roles within your current scope."
+    : "People visible within your current project or management scope.";
   const roleOptions: UserRoleName[] = isAdmin
     ? ["ADMIN", "ORGANIZATION_MANAGER", "DEPARTMENT_MANAGER"]
     : ["DEPARTMENT_MANAGER"];
@@ -228,11 +232,9 @@ export function UsersRolesClient({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Users & Roles
+            {pageTitle}
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            People visible within your current Lime++ scope.
-          </p>
+          <p className="mt-2 text-muted-foreground">{pageDescription}</p>
         </div>
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

@@ -164,7 +164,7 @@ export function DepartmentTable({
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           asChild
                         >
-                          <Link href={`/projects?departmentId=${dept.id}`}>
+                          <Link href={`/departments/${dept.id}`}>
                             <ExternalLink className="h-4 w-4" />
                           </Link>
                         </Button>
