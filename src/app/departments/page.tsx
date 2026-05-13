@@ -42,7 +42,12 @@ export default async function DepartmentsPage({
   const hasOrganizationScope = (
     session?.user?.scopes?.organizations || []
   ).some((scope) => scope.role === "ORGANIZATION_MANAGER");
+  const hasDepartmentScope = (session?.user?.scopes?.departments || []).some(
+    (scope) => scope.role === "DEPARTMENT_MANAGER",
+  );
   const canCreateDepartment = roles.includes("ADMIN") || hasOrganizationScope;
+  const isDepartmentOnlyManager =
+    hasDepartmentScope && !roles.includes("ADMIN") && !hasOrganizationScope;
 
   if (session?.user?.accessToken) {
     departments = await fetchDepartments(
@@ -57,11 +62,13 @@ export default async function DepartmentsPage({
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Departments
+              {isDepartmentOnlyManager ? "My Departments" : "Departments"}
             </h1>
             <p className="text-muted-foreground mt-2">
               {organizationId
                 ? "Departments filtered by the selected organization."
+                : isDepartmentOnlyManager
+                  ? "Department context for the projects you manage."
                 : "Manage academic departments within your organizations."}
             </p>
           </div>

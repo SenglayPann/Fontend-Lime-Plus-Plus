@@ -78,6 +78,8 @@ export function Sidebar() {
     hasDepartmentScope ||
     hasProjectManagerScope;
   const canAssignRoles = isAdmin || hasOrganizationScope;
+  const isDepartmentOnlyManager =
+    hasDepartmentScope && !isAdmin && !hasOrganizationScope;
 
   const filteredNavigation = navigation.filter((item) => {
     if (item.visibility === "all") return true;
@@ -133,7 +135,11 @@ export function Sidebar() {
                     : "text-sidebar-foreground/70 group-hover:text-primary",
                 )}
               />
-              {item.href === "/users" && !canAssignRoles ? "Users" : item.name}
+              {item.href === "/users" && !canAssignRoles
+                ? "Users"
+                : item.href === "/departments" && isDepartmentOnlyManager
+                  ? "My Departments"
+                  : item.name}
             </Link>
           );
         })}

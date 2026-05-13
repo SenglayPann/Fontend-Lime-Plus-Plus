@@ -92,4 +92,21 @@ describe("Sidebar role visibility", () => {
     expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.getByText("Users & Roles")).toBeInTheDocument();
   });
+
+  it("labels department context as My Departments for department managers", () => {
+    mockSession({
+      roles: ["DEPARTMENT_MANAGER"],
+      scopes: {
+        organizations: [],
+        departments: [{ id: "dept-1", role: "DEPARTMENT_MANAGER" }],
+        projects: [],
+      },
+    });
+
+    render(<Sidebar />);
+
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("My Departments")).toBeInTheDocument();
+    expect(screen.queryByText("Departments")).not.toBeInTheDocument();
+  });
 });
