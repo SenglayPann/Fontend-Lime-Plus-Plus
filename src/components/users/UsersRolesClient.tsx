@@ -44,8 +44,8 @@ type VisibleUser = {
     department?: ScopedName | null;
   }>;
   projectMembers?: Array<{
-    id: string;
-    role: string;
+    id?: string | null;
+    role?: string | null;
     project?: { id: string; name: string } | null;
   }>;
 };
@@ -70,8 +70,8 @@ function secondaryUser(user: VisibleUser) {
   return user.email || "No GitHub username";
 }
 
-function roleLabel(role: string) {
-  return role.replace("_", " ");
+function roleLabel(role?: string | null) {
+  return (role || "Unknown role").replace("_", " ");
 }
 
 function roleScope(role: NonNullable<VisibleUser["userRoles"]>[number]) {
@@ -496,7 +496,7 @@ function ProjectMembershipList({
     <div className="flex flex-wrap gap-2">
       {memberships.map((member) => (
         <span
-          key={member.id}
+          key={member.id || `${member.project?.id || "project"}-${member.role || "role"}`}
           className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground"
         >
           <FolderKanban className="h-3 w-3" />
