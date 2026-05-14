@@ -20,6 +20,14 @@ import { Combobox } from "@/components/ui/combobox";
 
 type Option = { value: string; label: string };
 
+const ROLE_RANK: Record<string, number> = {
+  ADMIN: 5,
+  ORGANIZATION_MANAGER: 4,
+  DEPARTMENT_MANAGER: 3,
+  PROJECT_MANAGER: 2,
+  PROJECT_MEMBER: 1,
+};
+
 export default function NewProjectPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -119,7 +127,14 @@ export default function NewProjectPage() {
               ? usersJson
               : []
           : [];
-        const userOptions: Option[] = userData.map((user: any) => ({
+        const actorRank = highestRoleRank(roles);
+        const assignableUsers = roles.includes("ADMIN")
+          ? userData
+          : userData.filter((user: any) => {
+              if (user.id === session.user.id) return true;
+              return highestRoleRank(getUserEffectiveRoles(user)) < actorRank;
+            });
+        const userOptions: Option[] = assignableUsers.map((user: any) => ({
           value: user.id,
           label:
             user.name ||
@@ -388,4 +403,19 @@ export default function NewProjectPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+function getUserEffectiveRoles(user: any): string[] {
+  const userRoles = Array.isArray(user.userRoles)
+    ? user.userRoles.map((role: any) => role.role)
+    : [];
+  const projectRoles = Array.isArray(user.projectMembers)
+    ? user.projectMembers.map((member: any) => member.role)
+    : [];
+
+  return [...userRoles, ...projectRoles].filter(Boolean);
+}
+
+function highestRoleRank(userRoles: string[]) {
+  return Math.max(0, ...userRoles.map((role) => ROLE_RANK[role] || 0));
 }
