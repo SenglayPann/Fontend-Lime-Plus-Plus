@@ -99,6 +99,28 @@ export function Sidebar() {
     return false;
   });
 
+  async function handleSignOut() {
+    const accessToken = session?.user?.accessToken;
+    const refreshToken = session?.user?.refreshToken;
+
+    if (accessToken && refreshToken) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+      } catch {
+        // Local sign-out must still proceed even if the backend is unreachable.
+      }
+    }
+
+    await signOut({ callbackUrl: "/login" });
+  }
+
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">
       <div className="flex h-16 items-center px-6">
@@ -147,7 +169,7 @@ export function Sidebar() {
 
       <div className="border-t border-sidebar-border p-4">
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleSignOut}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
         >
           <LogOut className="h-5 w-5" />

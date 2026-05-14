@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Sidebar } from "./Sidebar";
 
 jest.mock("next/navigation", () => ({
@@ -22,6 +22,9 @@ function mockSession(user: any) {
 describe("Sidebar role visibility", () => {
   beforeEach(() => {
     (usePathname as jest.Mock).mockReturnValue("/dashboard/my-contributions");
+    (signOut as jest.Mock).mockResolvedValue(undefined);
+    global.fetch = jest.fn();
+    process.env.NEXT_PUBLIC_API_URL = "http://api.test";
   });
 
   it("shows only personal navigation for an unassigned GitHub user", () => {
@@ -108,5 +111,36 @@ describe("Sidebar role visibility", () => {
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("My Departments")).toBeInTheDocument();
     expect(screen.queryByText("Departments")).not.toBeInTheDocument();
+  });
+
+  it("revokes the backend refresh token before signing out", async () => {
+    mockSession({
+      roles: ["PROJECT_MEMBER"],
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      scopes: {
+        organizations: [],
+        departments: [],
+        projects: [{ id: "project-1", role: "PROJECT_MEMBER" }],
+      },
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+
+    render(<Sidebar />);
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "http://api.test/auth/logout",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer access-token",
+          }) as unknown,
+          body: JSON.stringify({ refreshToken: "refresh-token" }),
+        }),
+      );
+      expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/login" });
+    });
   });
 });
