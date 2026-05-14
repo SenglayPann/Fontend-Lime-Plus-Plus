@@ -35,6 +35,17 @@ type Task = {
   }>;
 };
 
+type SyncSummary = {
+  syncedCount?: number;
+  totalItemsSeen?: number;
+  tasksCreated?: number;
+  tasksUpdated?: number;
+  skippedDrafts?: number;
+  skippedUnassigned?: number;
+  membersAutoAdded?: number;
+  warnings?: string[];
+};
+
 interface ProjectTasksClientProps {
   projectId: string;
   accessToken: string;
@@ -66,6 +77,7 @@ export function ProjectTasksClient({
   const [status, setStatus] = useState("ALL");
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
 
   const tasks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -93,6 +105,7 @@ export function ProjectTasksClient({
   async function syncTasks() {
     setIsSyncing(true);
     setError(null);
+    setSyncSummary(null);
 
     try {
       const res = await fetch(
@@ -110,6 +123,7 @@ export function ProjectTasksClient({
         );
       }
 
+      setSyncSummary(json.success ? json.data : json);
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to sync tasks");
@@ -150,6 +164,16 @@ export function ProjectTasksClient({
             {error && (
               <p className="max-w-md text-right text-xs font-medium text-destructive">
                 {error}
+              </p>
+            )}
+            {syncSummary && !error && (
+              <p className="max-w-md text-right text-xs text-muted-foreground">
+                {syncSummary.syncedCount ?? 0} synced from{" "}
+                {syncSummary.totalItemsSeen ?? 0} item(s)
+                {typeof syncSummary.skippedUnassigned === "number" &&
+                syncSummary.skippedUnassigned > 0
+                  ? `, ${syncSummary.skippedUnassigned} unassigned skipped`
+                  : ""}
               </p>
             )}
           </div>
