@@ -52,4 +52,21 @@ describe("ReportDownloadButton", () => {
       );
     });
   });
+
+  it("shows an inline error when download fails", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      headers: { get: jest.fn() },
+    });
+
+    render(<ReportDownloadButton projectId="p1" type="project" format="pdf" />);
+
+    fireEvent.click(screen.getByText("Export PDF"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Failed to download report",
+      );
+    });
+  });
 });

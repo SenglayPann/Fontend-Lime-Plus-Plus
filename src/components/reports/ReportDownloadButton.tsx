@@ -19,10 +19,12 @@ export function ReportDownloadButton({
   format,
 }: ReportDownloadButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
   const handleDownload = async () => {
     setLoading(true);
+    setError(null);
     try {
       const endpoint =
         type === "individual"
@@ -54,7 +56,7 @@ export function ReportDownloadButton({
       document.body.removeChild(a);
     } catch (error) {
       console.error("Download error:", error);
-      alert(
+      setError(
         "Failed to download report. Please ensure you have appropriate permissions.",
       );
     } finally {
@@ -65,20 +67,27 @@ export function ReportDownloadButton({
   const Icon = format === "pdf" ? FileText : FileSpreadsheet;
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="gap-2"
-      disabled={loading}
-      onClick={handleDownload}
-    >
-      {loading ? (
-        <Loader2 data-testid="loader" className="h-4 w-4 animate-spin" />
-      ) : (
-        <Icon className="h-4 w-4" />
+    <div className="inline-flex flex-col items-start gap-1">
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        disabled={loading}
+        onClick={handleDownload}
+      >
+        {loading ? (
+          <Loader2 data-testid="loader" className="h-4 w-4 animate-spin" />
+        ) : (
+          <Icon className="h-4 w-4" />
+        )}
+        {format === "pdf" ? "Export PDF" : "Export CSV"}
+      </Button>
+      {error && (
+        <p className="max-w-64 text-xs font-medium text-destructive" role="alert">
+          {error}
+        </p>
       )}
-      {format === "pdf" ? "Export PDF" : "Export CSV"}
-    </Button>
+    </div>
   );
 }
 

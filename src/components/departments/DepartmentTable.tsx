@@ -15,6 +15,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -37,6 +45,7 @@ export function DepartmentTable({
 }: DepartmentTableProps) {
   const [departments, setDepartments] = useState(initialDepartments);
   const [filter, setFilter] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,14 +58,6 @@ export function DepartmentTable({
   );
 
   const handleDelete = async (department: any) => {
-    if (
-      !confirm(
-        `Delete ${department.name}? The department must have no projects or scoped roles.`,
-      )
-    ) {
-      return;
-    }
-
     setPendingId(department.id);
     setError(null);
 
@@ -77,6 +78,7 @@ export function DepartmentTable({
       }
 
       setDepartments((prev) => prev.filter((d) => d.id !== department.id));
+      setDeleteTarget(null);
     } catch (error) {
       console.error("Error deleting department:", error);
       setError(
@@ -209,7 +211,10 @@ export function DepartmentTable({
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="gap-2 text-destructive focus:text-destructive cursor-pointer"
-                                onClick={() => handleDelete(dept)}
+                                onClick={() => {
+                                  setDeleteTarget(dept);
+                                  setError(null);
+                                }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </DropdownMenuItem>
@@ -225,6 +230,43 @@ export function DepartmentTable({
           </table>
         </div>
       </CardContent>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete department?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `${deleteTarget.name} can only be deleted when it has no projects or scoped roles.`
+                : "This department can only be deleted when it is empty."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={pendingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+              disabled={!deleteTarget || pendingId !== null}
+              className="gap-2"
+            >
+              {pendingId && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete Department
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

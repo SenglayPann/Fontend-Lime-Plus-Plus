@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -64,6 +65,7 @@ export function OrganizationsTableClient({
   const [editing, setEditing] = useState<Organization | null>(null);
   const [editName, setEditName] = useState("");
   const [editLicensePlan, setEditLicensePlan] = useState("standard");
+  const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,14 +133,6 @@ export function OrganizationsTableClient({
   }
 
   async function deleteOrganization(organization: Organization) {
-    if (
-      !confirm(
-        `Delete ${organization.name}? The organization must have no departments or scoped roles.`,
-      )
-    ) {
-      return;
-    }
-
     setPendingId(organization.id);
     setError(null);
 
@@ -162,6 +156,7 @@ export function OrganizationsTableClient({
         current.filter((item) => item.id !== organization.id),
       );
       router.refresh();
+      setDeleteTarget(null);
     } catch (err: any) {
       setError(err.message || "Failed to delete organization");
     } finally {
@@ -302,7 +297,10 @@ export function OrganizationsTableClient({
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                                onClick={() => deleteOrganization(organization)}
+                                onClick={() => {
+                                  setDeleteTarget(organization);
+                                  setError(null);
+                                }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </DropdownMenuItem>
@@ -369,6 +367,44 @@ export function OrganizationsTableClient({
             >
               {pendingId && <Loader2 className="h-4 w-4 animate-spin" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete organization?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `${deleteTarget.name} can only be deleted when it has no departments or scoped roles.`
+                : "This organization can only be deleted when it is empty."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={pendingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => deleteTarget && deleteOrganization(deleteTarget)}
+              disabled={!deleteTarget || pendingId !== null}
+              className="gap-2"
+            >
+              {pendingId && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete Organization
             </Button>
           </DialogFooter>
         </DialogContent>
