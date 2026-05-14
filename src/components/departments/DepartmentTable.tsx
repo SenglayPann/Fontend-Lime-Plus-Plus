@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FolderKanban,
   Building2,
+  Loader2,
   Trash2,
   Search,
 } from "lucide-react";
@@ -36,6 +37,8 @@ export function DepartmentTable({
 }: DepartmentTableProps) {
   const [departments, setDepartments] = useState(initialDepartments);
   const [filter, setFilter] = useState("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const filteredDepartments = departments.filter(
     (dept) =>
@@ -45,37 +48,54 @@ export function DepartmentTable({
         .includes(filter.toLowerCase()),
   );
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (department: any) => {
     if (
       !confirm(
-        "Are you sure you want to delete this department? This will also delete all projects within it.",
+        `Delete ${department.name}? The department must have no projects or scoped roles.`,
       )
     ) {
       return;
     }
 
+    setPendingId(department.id);
+    setError(null);
+
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/departments/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/departments/${department.id}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
+      const json = await res.json().catch(() => null);
 
-      if (res.ok) {
-        setDepartments((prev) => prev.filter((d) => d.id !== id));
-      } else {
-        alert("Failed to delete department");
+      if (!res.ok) {
+        throw new Error(
+          json?.error?.message || json?.message || "Failed to delete department",
+        );
       }
+
+      setDepartments((prev) => prev.filter((d) => d.id !== department.id));
     } catch (error) {
       console.error("Error deleting department:", error);
-      alert("An error occurred while deleting");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An error occurred while deleting",
+      );
+    } finally {
+      setPendingId(null);
     }
   };
 
   return (
     <Card>
+      {error && (
+        <div className="border-b border-destructive/20 bg-destructive/10 px-6 py-3 text-sm font-medium text-destructive">
+          {error}
+        </div>
+      )}
       <CardHeader className="border-b border-border bg-muted/20 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="relative w-72">
@@ -175,8 +195,13 @@ export function DepartmentTable({
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                disabled={pendingId === dept.id}
                               >
-                                <MoreHorizontal className="h-4 w-4" />
+                                {pendingId === dept.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <MoreHorizontal className="h-4 w-4" />
+                                )}
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
@@ -184,7 +209,7 @@ export function DepartmentTable({
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="gap-2 text-destructive focus:text-destructive cursor-pointer"
-                                onClick={() => handleDelete(dept.id)}
+                                onClick={() => handleDelete(dept)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </DropdownMenuItem>

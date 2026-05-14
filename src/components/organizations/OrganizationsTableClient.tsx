@@ -133,7 +133,7 @@ export function OrganizationsTableClient({
   async function deleteOrganization(organization: Organization) {
     if (
       !confirm(
-        `Delete ${organization.name}? This will also delete its departments and projects.`,
+        `Delete ${organization.name}? The organization must have no departments or scoped roles.`,
       )
     ) {
       return;
