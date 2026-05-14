@@ -42,6 +42,7 @@ type SyncSummary = {
   tasksUpdated?: number;
   skippedDrafts?: number;
   skippedUnassigned?: number;
+  unassignedTasks?: number;
   membersAutoAdded?: number;
   warnings?: string[];
 };
@@ -170,9 +171,9 @@ export function ProjectTasksClient({
               <p className="max-w-md text-right text-xs text-muted-foreground">
                 {syncSummary.syncedCount ?? 0} synced from{" "}
                 {syncSummary.totalItemsSeen ?? 0} item(s)
-                {typeof syncSummary.skippedUnassigned === "number" &&
-                syncSummary.skippedUnassigned > 0
-                  ? `, ${syncSummary.skippedUnassigned} unassigned skipped`
+                {typeof syncSummary.unassignedTasks === "number" &&
+                syncSummary.unassignedTasks > 0
+                  ? `, ${syncSummary.unassignedTasks} unassigned imported`
                   : ""}
               </p>
             )}
