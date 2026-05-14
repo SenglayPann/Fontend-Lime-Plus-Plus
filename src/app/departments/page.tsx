@@ -5,27 +5,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { DepartmentTable } from "@/components/departments/DepartmentTable";
-
-async function fetchDepartments(token: string, organizationId?: string) {
-  try {
-    const query = organizationId
-      ? `?organization_id=${encodeURIComponent(organizationId)}`
-      : "";
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/departments${query}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.success ? json.data : [];
-  } catch (error) {
-    console.error("Error fetching departments:", error);
-    return [];
-  }
-}
+import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 
 export default async function DepartmentsPage({
   searchParams,
@@ -37,7 +17,7 @@ export default async function DepartmentsPage({
   const organizationId =
     resolvedSearchParams?.organization_id ||
     resolvedSearchParams?.organizationId;
-  let departments: any[] = [];
+  let departmentsResult: ServerApiResult<any[]> = { data: [], error: null };
   const roles = session?.user?.roles || [];
   const hasOrganizationScope = (
     session?.user?.scopes?.organizations || []
@@ -50,9 +30,13 @@ export default async function DepartmentsPage({
     hasDepartmentScope && !roles.includes("ADMIN") && !hasOrganizationScope;
 
   if (session?.user?.accessToken) {
-    departments = await fetchDepartments(
+    const query = organizationId
+      ? `?organization_id=${encodeURIComponent(organizationId)}`
+      : "";
+    departmentsResult = await fetchServerApi<any[]>(
+      `/departments${query}`,
       session.user.accessToken,
-      organizationId,
+      [],
     );
   }
 
@@ -81,8 +65,14 @@ export default async function DepartmentsPage({
           )}
         </div>
 
+        {departmentsResult.error && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {departmentsResult.error}
+          </div>
+        )}
+
         <DepartmentTable
-          initialDepartments={departments}
+          initialDepartments={departmentsResult.data}
           accessToken={session?.user?.accessToken || ""}
           canManageDepartments={canCreateDepartment}
         />

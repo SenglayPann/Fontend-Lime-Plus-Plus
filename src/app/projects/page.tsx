@@ -2,27 +2,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { ProjectListClient } from "@/components/projects/ProjectListClient";
-
-async function fetchProjects(token: string, departmentId?: string) {
-  try {
-    const query = departmentId
-      ? `?department_id=${encodeURIComponent(departmentId)}`
-      : "";
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/projects${query}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.success ? json.data : [];
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    return [];
-  }
-}
+import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 
 export default async function ProjectsPage({
   searchParams,
@@ -42,16 +22,28 @@ export default async function ProjectsPage({
   );
   const canCreateProject =
     roles.includes("ADMIN") || hasOrganizationScope || hasDepartmentScope;
-  let projects: any[] = [];
+  let projectsResult: ServerApiResult<any[]> = { data: [], error: null };
 
   if (session?.user?.accessToken) {
-    projects = await fetchProjects(session.user.accessToken, departmentId);
+    const query = departmentId
+      ? `?department_id=${encodeURIComponent(departmentId)}`
+      : "";
+    projectsResult = await fetchServerApi<any[]>(
+      `/projects${query}`,
+      session.user.accessToken,
+      [],
+    );
   }
 
   return (
     <DashboardLayout>
+      {projectsResult.error && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {projectsResult.error}
+        </div>
+      )}
       <ProjectListClient
-        initialProjects={projects}
+        initialProjects={projectsResult.data}
         departmentId={departmentId}
         canCreateProject={canCreateProject}
       />

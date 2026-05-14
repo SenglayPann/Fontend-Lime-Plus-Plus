@@ -6,33 +6,20 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { OrganizationsTableClient } from "@/components/organizations/OrganizationsTableClient";
-
-async function fetchOrganizations(token: string) {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/organizations`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.success ? json.data : [];
-  } catch (error) {
-    console.error("Error fetching organizations:", error);
-    return [];
-  }
-}
+import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 
 export default async function OrganizationsPage() {
   const session = await getServerSession(authOptions);
-  let organizations: any[] = [];
+  let organizationsResult: ServerApiResult<any[]> = { data: [], error: null };
   const roles = session?.user?.roles || [];
   const canCreateOrganization = roles.includes("ADMIN");
 
   if (session?.user?.accessToken) {
-    organizations = await fetchOrganizations(session.user.accessToken);
+    organizationsResult = await fetchServerApi<any[]>(
+      "/organizations",
+      session.user.accessToken,
+      [],
+    );
   }
 
   return (
@@ -56,8 +43,14 @@ export default async function OrganizationsPage() {
           )}
         </div>
 
+        {organizationsResult.error && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {organizationsResult.error}
+          </div>
+        )}
+
         <OrganizationsTableClient
-          organizations={organizations}
+          organizations={organizationsResult.data}
           accessToken={session?.user?.accessToken || ""}
           canManageOrganizations={canCreateOrganization}
         />

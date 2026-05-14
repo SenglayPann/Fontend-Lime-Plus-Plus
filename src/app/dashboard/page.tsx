@@ -13,63 +13,8 @@ import {
 
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { fetchServerApi } from "@/lib/server-api";
 import { redirect } from "next/navigation";
-
-async function fetchStats(token: string) {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.success ? json.data : null;
-  } catch (error) {
-    console.error("Error fetching stats:", error);
-    return null;
-  }
-}
-
-async function fetchActivity(token: string) {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/activity`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.success ? json.data : [];
-  } catch (error) {
-    console.error("Error fetching activity:", error);
-    return [];
-  }
-}
-
-async function fetchDepartments(token: string) {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/departments`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.success ? json.data : [];
-  } catch (error) {
-    console.error("Error fetching departments:", error);
-    return [];
-  }
-}
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -97,12 +42,31 @@ export default async function DashboardPage() {
   };
   let recentActivity: any[] = [];
   let topDepartments: any[] = [];
+  let loadErrors: string[] = [];
 
   if (session?.user?.accessToken) {
-    const fetchedStats = await fetchStats(session.user.accessToken);
-    if (fetchedStats) statsData = fetchedStats;
-    recentActivity = await fetchActivity(session.user.accessToken);
-    topDepartments = await fetchDepartments(session.user.accessToken);
+    const [statsResult, activityResult, departmentsResult] = await Promise.all([
+      fetchServerApi<typeof statsData | null>(
+        "/dashboard/stats",
+        session.user.accessToken,
+        null,
+      ),
+      fetchServerApi<any[]>("/dashboard/activity", session.user.accessToken, []),
+      fetchServerApi<any[]>(
+        "/dashboard/departments",
+        session.user.accessToken,
+        [],
+      ),
+    ]);
+
+    if (statsResult.data) statsData = statsResult.data;
+    recentActivity = activityResult.data;
+    topDepartments = departmentsResult.data;
+    loadErrors = [
+      statsResult.error,
+      activityResult.error,
+      departmentsResult.error,
+    ].filter((error): error is string => Boolean(error));
   }
 
   const stats = [
@@ -149,6 +113,12 @@ export default async function DashboardPage() {
             </p>
           </div>
         </div>
+
+        {loadErrors.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {loadErrors.join(" ")}
+          </div>
+        )}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
