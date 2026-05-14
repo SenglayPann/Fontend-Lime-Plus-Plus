@@ -137,11 +137,36 @@ async function refreshAccessToken(token: any) {
       throw refreshedTokens;
     }
 
+    const profileResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${refreshedTokens.accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+    const profileJson = await profileResponse.json();
+    const user = profileJson.success ? profileJson.data : null;
+
+    if (!profileResponse.ok || !user) {
+      throw user;
+    }
+
     return {
       ...token,
+      id: user.id,
+      role: user.roles?.[0] || "USER",
+      roles:
+        Array.isArray(user.roles) && user.roles.length > 0
+          ? user.roles
+          : ["USER"],
+      scopes: user.scopes,
       accessToken: refreshedTokens.accessToken,
       accessTokenExpires: Date.now() + refreshedTokens.expiresIn * 1000,
+      expiresIn: refreshedTokens.expiresIn,
       refreshToken: refreshedTokens.refreshToken ?? token.refreshToken, // Fall back to old refresh token
+      error: undefined,
     };
   } catch (error) {
     console.error("Error refreshing access token", error);

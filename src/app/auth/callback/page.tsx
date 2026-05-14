@@ -9,27 +9,48 @@ function CallbackContent() {
   const router = useRouter();
 
   useEffect(() => {
-    const accessToken = searchParams.get('accessToken');
-    const refreshToken = searchParams.get('refreshToken');
-    const expiresIn = searchParams.get('expiresIn');
+    const code = searchParams.get('code');
 
-    if (accessToken && refreshToken) {
-      // Sign in with next-auth using our custom credentials provider
-      signIn('credentials', {
-        accessToken,
-        refreshToken,
-        expiresIn,
-        redirect: false,
-      }).then((result) => {
-        if (result?.ok) {
-          router.push('/dashboard'); // or home
-        } else {
-          router.push('/login?error=AuthFailed');
-        }
-      });
-    } else {
-      router.push('/login?error=MissingTokens');
+    if (!code) {
+      router.push('/login?error=MissingCode');
+      return;
     }
+
+    window.history.replaceState(null, '', '/auth/callback');
+
+    const exchangeCode = async () => {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/exchange`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        },
+      );
+      const json = await response.json();
+      const tokens = json.success ? json.data : null;
+
+      if (!response.ok || !tokens?.accessToken || !tokens?.refreshToken) {
+        throw new Error('Auth code exchange failed');
+      }
+
+      const result = await signIn('credentials', {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: String(tokens.expiresIn),
+        redirect: false,
+      });
+
+      if (result?.ok) {
+        router.push('/dashboard');
+      } else {
+        router.push('/login?error=AuthFailed');
+      }
+    };
+
+    exchangeCode().catch(() => {
+      router.push('/login?error=AuthFailed');
+    });
   }, [searchParams, router]);
 
   return (
