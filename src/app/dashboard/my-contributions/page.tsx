@@ -89,7 +89,7 @@ async function fetchMyContributions(
       `${process.env.NEXT_PUBLIC_API_URL}/dashboard/my-contributions`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 0 },
+        cache: "no-store",
       },
     );
     if (!res.ok) return null;

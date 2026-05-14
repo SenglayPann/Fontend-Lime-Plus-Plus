@@ -8,7 +8,6 @@ import {
   FolderKanban,
   Building2,
   Trash2,
-  Edit2,
   Search,
 } from "lucide-react";
 import Link from "next/link";
@@ -183,9 +182,6 @@ export function DepartmentTable({
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="gap-2 cursor-pointer">
-                                <Edit2 className="h-3.5 w-3.5" /> Edit Dept
-                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2 text-destructive focus:text-destructive cursor-pointer"
                                 onClick={() => handleDelete(dept.id)}

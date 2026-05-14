@@ -15,7 +15,7 @@ async function fetchDepartments(token: string, organizationId?: string) {
       `${process.env.NEXT_PUBLIC_API_URL}/departments${query}`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 0 }, // Disable cache for real-time count
+        cache: "no-store",
       },
     );
     if (!res.ok) return [];

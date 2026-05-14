@@ -12,7 +12,7 @@ async function fetchProjects(token: string, departmentId?: string) {
       `${process.env.NEXT_PUBLIC_API_URL}/projects${query}`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 0 },
+        cache: "no-store",
       },
     );
     if (!res.ok) return [];

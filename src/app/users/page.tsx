@@ -13,7 +13,7 @@ async function fetchApi<T>(
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 0 },
+      cache: "no-store",
     });
     if (!res.ok) return { data: fallback, error: "Request failed" };
     const json = await res.json();

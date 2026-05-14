@@ -13,7 +13,7 @@ async function fetchOrganizations(token: string) {
       `${process.env.NEXT_PUBLIC_API_URL}/organizations`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 60 },
+        cache: "no-store",
       },
     );
     if (!res.ok) return [];

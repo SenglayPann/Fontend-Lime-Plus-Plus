@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Building2, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -139,35 +138,17 @@ export default function NewOrganizationPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  Description
+                  License Plan
                 </label>
-                <Textarea
-                  placeholder="Describe the organization's purpose or scope..."
-                  className="h-32"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    License Plan
-                  </label>
-                  <select
-                    name="license_plan"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="academic">Academic</option>
-                    <option value="enterprise">Enterprise</option>
-                    <option value="trial">Trial</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Contact Email
-                  </label>
-                  <Input type="email" placeholder="admin@org.edu" />
-                </div>
+                <select
+                  name="license_plan"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="standard">Standard</option>
+                  <option value="academic">Academic</option>
+                  <option value="enterprise">Enterprise</option>
+                  <option value="trial">Trial</option>
+                </select>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3">

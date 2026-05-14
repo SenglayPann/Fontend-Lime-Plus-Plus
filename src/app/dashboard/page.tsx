@@ -23,7 +23,7 @@ async function fetchStats(token: string) {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        next: { revalidate: 60 },
+        cache: "no-store",
       },
     );
     if (!res.ok) return null;
@@ -41,7 +41,7 @@ async function fetchActivity(token: string) {
       `${process.env.NEXT_PUBLIC_API_URL}/dashboard/activity`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 60 },
+        cache: "no-store",
       },
     );
     if (!res.ok) return [];
@@ -59,7 +59,7 @@ async function fetchDepartments(token: string) {
       `${process.env.NEXT_PUBLIC_API_URL}/dashboard/departments`,
       {
         headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 60 },
+        cache: "no-store",
       },
     );
     if (!res.ok) return [];
