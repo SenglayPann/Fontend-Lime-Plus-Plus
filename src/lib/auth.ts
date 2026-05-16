@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 export const authOptions: NextAuthOptions = {
@@ -9,6 +10,7 @@ export const authOptions: NextAuthOptions = {
         accessToken: { label: "Access Token", type: "text" },
         refreshToken: { label: "Refresh Token", type: "text" },
         expiresIn: { label: "Expires In", type: "text" },
+        browserId: { label: "Browser ID", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.accessToken || !credentials?.refreshToken) {
@@ -26,6 +28,7 @@ export const authOptions: NextAuthOptions = {
             {
               headers: {
                 Authorization: `Bearer ${credentials.accessToken}`,
+                "X-Browser-Id": credentials.browserId || "",
               },
             },
           );
@@ -56,6 +59,7 @@ export const authOptions: NextAuthOptions = {
             accessToken: credentials.accessToken,
             refreshToken: credentials.refreshToken,
             expiresIn: parseInt(credentials.expiresIn || "900", 10),
+            browserId: credentials.browserId,
           };
         } catch (error) {
           console.error("Error authorizing user:", error);
@@ -65,7 +69,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account }): Promise<JWT> {
       // Initial sign in
       if (user && account) {
         return {
@@ -77,8 +81,9 @@ export const authOptions: NextAuthOptions = {
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           expiresIn: user.expiresIn,
+          browserId: user.browserId,
           accessTokenExpires: Date.now() + user.expiresIn * 1000,
-        };
+        } as JWT;
       }
 
       if (
@@ -98,6 +103,7 @@ export const authOptions: NextAuthOptions = {
       session.user.scopes = token.scopes as typeof session.user.scopes;
       session.user.accessToken = token.accessToken as string;
       session.user.refreshToken = token.refreshToken as string;
+      session.user.browserId = token.browserId as string;
       session.user.expiresIn = token.expiresIn as number;
       session.user.error = token.error as string | undefined;
       return session;
@@ -117,7 +123,7 @@ export const authOptions: NextAuthOptions = {
  * `accessToken` and `accessTokenExpires`. If an error occurs,
  * returns the old token and an error property
  */
-async function refreshAccessToken(token: any) {
+async function refreshAccessToken(token: JWT): Promise<JWT> {
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
@@ -125,6 +131,7 @@ async function refreshAccessToken(token: any) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Browser-Id": token.browserId || "",
         },
         body: JSON.stringify({
           refreshToken: token.refreshToken,
@@ -144,6 +151,7 @@ async function refreshAccessToken(token: any) {
       {
         headers: {
           Authorization: `Bearer ${refreshedTokens.accessToken}`,
+          "X-Browser-Id": token.browserId || "",
         },
         cache: "no-store",
       },
@@ -180,13 +188,14 @@ async function refreshAccessToken(token: any) {
   }
 }
 
-async function refreshProfile(token: any) {
+async function refreshProfile(token: JWT): Promise<JWT> {
   try {
     const profileResponse = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
       {
         headers: {
           Authorization: `Bearer ${token.accessToken}`,
+          "X-Browser-Id": token.browserId || "",
         },
         cache: "no-store",
       },

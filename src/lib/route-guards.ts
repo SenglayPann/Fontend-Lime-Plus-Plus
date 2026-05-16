@@ -1,10 +1,15 @@
 import type { JWT } from "next-auth/jwt";
 
 export const LOGIN_PATH = "/login";
+export const AUTH_CALLBACK_PATH = "/auth/callback";
 export const AUTHENTICATED_HOME_PATH = "/dashboard";
 
-export const GUEST_ONLY_ROUTE_PREFIXES = [LOGIN_PATH, "/auth/callback"];
-export const PUBLIC_ROUTE_PREFIXES = ["/", ...GUEST_ONLY_ROUTE_PREFIXES];
+export const GUEST_ONLY_ROUTE_PREFIXES = [LOGIN_PATH];
+export const PUBLIC_ROUTE_PREFIXES = [
+  "/",
+  ...GUEST_ONLY_ROUTE_PREFIXES,
+  AUTH_CALLBACK_PATH,
+];
 
 export function isGuestOnlyRoute(pathname: string) {
   return matchesAnyRoutePrefix(pathname, GUEST_ONLY_ROUTE_PREFIXES);

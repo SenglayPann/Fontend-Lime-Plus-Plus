@@ -1,5 +1,4 @@
-import NextAuth, { DefaultSession } from "next-auth";
-import { JWT } from "next-auth/jwt";
+import type { DefaultSession, Session } from "next-auth";
 
 declare module "next-auth" {
   /**
@@ -31,6 +30,7 @@ declare module "next-auth" {
       accessToken: string;
       refreshToken: string;
       expiresIn: number;
+      browserId?: string;
       error?: string;
     } & DefaultSession["user"];
   }
@@ -39,10 +39,15 @@ declare module "next-auth" {
     id: string;
     role: string;
     roles: string[];
-    scopes?: Session["user"]["scopes"];
+    scopes?: {
+      organizations: { id: string; role: string }[];
+      departments: { id: string; role: string }[];
+      projects: { id: string; role: string }[];
+    };
     accessToken: string;
     refreshToken: string;
     expiresIn: number;
+    browserId?: string;
   }
 }
 
@@ -57,6 +62,7 @@ declare module "next-auth/jwt" {
     refreshToken: string;
     expiresIn: number;
     accessTokenExpires: number;
+    browserId?: string;
     error?: string;
   }
 }

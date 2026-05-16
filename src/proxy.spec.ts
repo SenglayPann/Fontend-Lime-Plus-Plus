@@ -20,6 +20,7 @@ jest.mock("next/server", () => ({
 import { getToken } from "next-auth/jwt";
 import { proxy } from "./proxy";
 import {
+  AUTH_CALLBACK_PATH,
   AUTHENTICATED_HOME_PATH,
   LOGIN_PATH,
   isGuestOnlyRoute,
@@ -95,6 +96,17 @@ describe("request proxy authorization", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("allows authenticated popup users to complete the auth callback", async () => {
+    mockedGetToken.mockResolvedValue({ sub: "user-1", accessToken: "token" });
+
+    const response = await proxy(
+      createRequest("/auth/callback?code=abc&mode=popup"),
+    );
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("redirects authenticated users away from guest-only auth routes", async () => {
     mockedGetToken.mockResolvedValue({ sub: "user-1", accessToken: "token" });
 
@@ -107,9 +119,10 @@ describe("request proxy authorization", () => {
 
   it("classifies auth routes centrally", () => {
     expect(isGuestOnlyRoute("/login")).toBe(true);
-    expect(isGuestOnlyRoute("/auth/callback")).toBe(true);
+    expect(isGuestOnlyRoute(AUTH_CALLBACK_PATH)).toBe(false);
     expect(isPublicRoute("/")).toBe(true);
     expect(isPublicRoute("/login")).toBe(true);
+    expect(isPublicRoute(AUTH_CALLBACK_PATH)).toBe(true);
     expect(isPublicRoute("/dashboard")).toBe(false);
   });
 
