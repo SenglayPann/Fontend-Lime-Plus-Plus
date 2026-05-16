@@ -1,22 +1,12 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import type { Metadata } from "next";
+import { LandingPage } from "@/components/landing/LandingPage";
 
-export default async function Home() {
-  const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+export const metadata: Metadata = {
+  title: "Lime++ | Contribution intelligence for project teams",
+  description:
+    "Role-aware GitHub contribution dashboards, scoped project reporting, and audit-ready project workflows.",
+};
 
-  const roles = session.user.roles || [];
-  const scopes = session.user.scopes;
-  const hasManagementScope =
-    roles.includes("ADMIN") ||
-    (scopes?.organizations || []).some(
-      (scope) => scope.role === "ORGANIZATION_MANAGER",
-    ) ||
-    (scopes?.departments || []).some(
-      (scope) => scope.role === "DEPARTMENT_MANAGER",
-    ) ||
-    (scopes?.projects || []).some((scope) => scope.role === "PROJECT_MANAGER");
-
-  redirect(hasManagementScope ? "/dashboard" : "/dashboard/my-contributions");
+export default function Home() {
+  return <LandingPage />;
 }

@@ -77,6 +77,15 @@ describe("request proxy authorization", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("allows unauthenticated users to access the public landing page", async () => {
+    mockedGetToken.mockResolvedValue(null);
+
+    const response = await proxy(createRequest("/"));
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("allows unauthenticated users to complete the auth callback", async () => {
     mockedGetToken.mockResolvedValue(null);
 
@@ -99,6 +108,7 @@ describe("request proxy authorization", () => {
   it("classifies auth routes centrally", () => {
     expect(isGuestOnlyRoute("/login")).toBe(true);
     expect(isGuestOnlyRoute("/auth/callback")).toBe(true);
+    expect(isPublicRoute("/")).toBe(true);
     expect(isPublicRoute("/login")).toBe(true);
     expect(isPublicRoute("/dashboard")).toBe(false);
   });

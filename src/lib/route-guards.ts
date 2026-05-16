@@ -4,7 +4,7 @@ export const LOGIN_PATH = "/login";
 export const AUTHENTICATED_HOME_PATH = "/dashboard";
 
 export const GUEST_ONLY_ROUTE_PREFIXES = [LOGIN_PATH, "/auth/callback"];
-export const PUBLIC_ROUTE_PREFIXES = [...GUEST_ONLY_ROUTE_PREFIXES];
+export const PUBLIC_ROUTE_PREFIXES = ["/", ...GUEST_ONLY_ROUTE_PREFIXES];
 
 export function isGuestOnlyRoute(pathname: string) {
   return matchesAnyRoutePrefix(pathname, GUEST_ONLY_ROUTE_PREFIXES);
