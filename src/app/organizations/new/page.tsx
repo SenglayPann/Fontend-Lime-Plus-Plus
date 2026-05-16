@@ -10,19 +10,59 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Building2, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Building2, Loader2, Save, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { Combobox } from "@/components/ui/combobox";
 
 export default function NewOrganizationPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [users, setUsers] = useState<{ value: string; label: string }[]>([]);
+  const [managerId, setManagerId] = useState("");
 
   const isAdmin = session?.user?.roles?.includes("ADMIN");
+
+  useEffect(() => {
+    async function fetchUsers() {
+      if (status === "loading" || !isAdmin || !session?.user?.accessToken) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
+          headers: { Authorization: `Bearer ${session.user.accessToken}` },
+        });
+        const json = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            json.error?.message || json.message || "Failed to load users",
+          );
+        }
+
+        const userData = Array.isArray(json) ? json : json.data || [];
+        setUsers(
+          userData.map((user: any) => ({
+            value: user.id,
+            label:
+              user.name || user.githubUsername || user.email || "Unknown User",
+          })),
+        );
+        setUsersError(null);
+      } catch (err) {
+        console.error("Failed to load organization manager candidates:", err);
+        setUsersError("Could not load manager candidates.");
+      }
+    }
+
+    fetchUsers();
+  }, [isAdmin, session, status]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,6 +84,7 @@ export default function NewOrganizationPage() {
           body: JSON.stringify({
             name: formData.get("name"),
             license_plan: formData.get("license_plan"),
+            manager_user_id: managerId || undefined,
           }),
         },
       );
@@ -124,6 +165,11 @@ export default function NewOrganizationPage() {
                 {error}
               </div>
             )}
+            {usersError && (
+              <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
+                {usersError}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -149,6 +195,26 @@ export default function NewOrganizationPage() {
                   <option value="enterprise">Enterprise</option>
                   <option value="trial">Trial</option>
                 </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <UserCircle className="h-4 w-4 text-primary" />
+                  Organization Manager (Optional)
+                </label>
+                <Combobox
+                  options={users}
+                  value={managerId}
+                  onChange={setManagerId}
+                  placeholder="Search for a user to assign..."
+                  emptyText={
+                    usersError ? "Manager candidates failed to load." : "No users found."
+                  }
+                  disabled={Boolean(usersError)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  This user will be granted the ORGANIZATION_MANAGER role.
+                </p>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3">

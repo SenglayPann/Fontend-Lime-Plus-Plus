@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -38,6 +38,38 @@ const departmentSchema = z.object({
 });
 
 type DepartmentFormValues = z.infer<typeof departmentSchema>;
+type UserCandidate = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  githubUsername?: string | null;
+  userRoles?: Array<{
+    role?: string | null;
+    organizationId?: string | null;
+    organization?: { id?: string | null } | null;
+    department?: {
+      organizationId?: string | null;
+      organization?: { id?: string | null } | null;
+    } | null;
+  }>;
+  projectMembers?: Array<{
+    role?: string | null;
+    project?: {
+      department?: {
+        organizationId?: string | null;
+        organization?: { id?: string | null } | null;
+      } | null;
+    } | null;
+  }>;
+};
+
+const ROLE_RANK: Record<string, number> = {
+  ADMIN: 5,
+  ORGANIZATION_MANAGER: 4,
+  DEPARTMENT_MANAGER: 3,
+  PROJECT_MANAGER: 2,
+  PROJECT_MEMBER: 1,
+};
 
 export default function NewDepartmentPage() {
   const router = useRouter();
@@ -51,7 +83,8 @@ export default function NewDepartmentPage() {
   const [organizations, setOrganizations] = useState<
     { value: string; label: string }[]
   >([]);
-  const [users, setUsers] = useState<{ value: string; label: string }[]>([]);
+  const [userCandidates, setUserCandidates] = useState<UserCandidate[]>([]);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +106,34 @@ export default function NewDepartmentPage() {
 
   const selectedOrgId = watch("organizationId");
   const selectedManagerId = watch("managerId");
+  const managerOptions = useMemo(() => {
+    const actorRank = highestRoleRank(roles);
+
+    return userCandidates
+      .filter((user) => {
+        if (!selectedOrgId) return false;
+        if (roles.includes("ADMIN")) return true;
+        if (user.id === session?.user?.id) return true;
+
+        return (
+          userBelongsToOrganization(user, selectedOrgId) &&
+          highestRoleRank(getUserEffectiveRoles(user)) < actorRank
+        );
+      })
+      .map((user) => ({
+        value: user.id,
+        label: userLabel(user),
+      }));
+  }, [roles, selectedOrgId, session?.user?.id, userCandidates]);
+
+  useEffect(() => {
+    if (
+      selectedManagerId &&
+      !managerOptions.some((option) => option.value === selectedManagerId)
+    ) {
+      setValue("managerId", "");
+    }
+  }, [managerOptions, selectedManagerId, setValue]);
 
   useEffect(() => {
     async function fetchData() {
@@ -92,49 +153,51 @@ export default function NewDepartmentPage() {
           }),
         ]);
 
-        const orgsJson = await orgsRes.json();
-        const usersJson = await usersRes.json();
+        const orgsJson = await orgsRes.json().catch(() => null);
 
         if (!orgsRes.ok) {
           throw new Error(
-            orgsJson.error?.message || "Failed to load organizations",
+            orgsJson?.error?.message || "Failed to load organizations",
           );
         }
 
+        const organizationData = Array.isArray(orgsJson)
+          ? orgsJson
+          : orgsJson?.data || [];
+        const organizationScopeIds = new Set(
+          (session.user.scopes?.organizations || [])
+            .filter((scope) => scope.role === "ORGANIZATION_MANAGER")
+            .map((scope) => scope.id),
+        );
+        const creatableOrganizations = roles.includes("ADMIN")
+          ? organizationData
+          : organizationData.filter((org: any) =>
+              organizationScopeIds.has(org.id),
+            );
+
+        setOrganizations(
+          creatableOrganizations.map((org: any) => ({
+            value: org.id,
+            label: org.name,
+          })),
+        );
+
+        const usersJson = await usersRes.json().catch(() => null);
         if (!usersRes.ok) {
-          throw new Error(usersJson.error?.message || "Failed to load users");
-        }
-
-        if (orgsJson.success) {
-          const organizationScopeIds = new Set(
-            (session.user.scopes?.organizations || [])
-              .filter((scope) => scope.role === "ORGANIZATION_MANAGER")
-              .map((scope) => scope.id),
+          setUserCandidates([]);
+          setUsersError(
+            usersJson?.error?.message ||
+              usersJson?.message ||
+              "Could not load manager candidates.",
           );
-          const creatableOrganizations = roles.includes("ADMIN")
-            ? orgsJson.data
-            : orgsJson.data.filter((org: any) =>
-                organizationScopeIds.has(org.id),
-              );
-
-          setOrganizations(
-            creatableOrganizations.map((org: any) => ({
-              value: org.id,
-              label: org.name,
-            })),
-          );
+          return;
         }
 
         const userData = Array.isArray(usersJson)
           ? usersJson
-          : usersJson.data || [];
-        setUsers(
-          userData.map((user: any) => ({
-            value: user.id,
-            label:
-              user.name || user.githubUsername || user.email || "Unknown User",
-          })),
-        );
+          : usersJson?.data || [];
+        setUserCandidates(userData);
+        setUsersError(null);
       } catch (err) {
         console.error("Failed to fetch data:", err);
         setError("Could not load form data. Please refresh and try again.");
@@ -151,7 +214,6 @@ export default function NewDepartmentPage() {
     setError(null);
 
     try {
-      // 1. Create the Department
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/departments`,
         {
@@ -164,43 +226,16 @@ export default function NewDepartmentPage() {
             name: data.name,
             organization_id: data.organizationId,
             description: data.description,
+            manager_user_id: data.managerId || undefined,
           }),
         },
       );
 
       if (!res.ok) {
         const json = await res.json();
-        throw new Error(json.message || "Failed to create department");
-      }
-
-      const result = await res.json();
-      const createdDeptId = result.data.id;
-
-      // 2. If manager is selected, assign the role
-      if (data.managerId) {
-        const roleRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/users/${data.managerId}/roles`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.user.accessToken}`,
-            },
-            body: JSON.stringify({
-              role: "DEPARTMENT_MANAGER",
-              department_id: createdDeptId,
-            }),
-          },
+        throw new Error(
+          json.error?.message || json.message || "Failed to create department",
         );
-
-        if (!roleRes.ok) {
-          const roleJson = await roleRes.json().catch(() => null);
-          throw new Error(
-            roleJson?.error?.message ||
-              roleJson?.message ||
-              "Department was created, but manager assignment failed",
-          );
-        }
       }
 
       router.push("/departments");
@@ -274,6 +309,12 @@ export default function NewDepartmentPage() {
                 {error}
               </div>
             )}
+            {usersError && (
+              <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
+                Department creation is available, but manager candidates could
+                not be loaded: {usersError}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
               <div className="grid gap-6">
@@ -324,11 +365,18 @@ export default function NewDepartmentPage() {
                     Manager (Optional)
                   </Label>
                   <Combobox
-                    options={users}
+                    options={managerOptions}
                     value={selectedManagerId}
                     onChange={(val) => setValue("managerId", val)}
                     placeholder="Search for a user to assign..."
-                    emptyText="No users found."
+                    emptyText={
+                      !selectedOrgId
+                        ? "Select an organization first."
+                        : usersError
+                          ? "Manager candidates failed to load."
+                          : "No eligible users found."
+                    }
+                    disabled={Boolean(usersError) || !selectedOrgId}
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">
                     This user will be granted the DEPARTMENT_MANAGER role.
@@ -377,4 +425,44 @@ export default function NewDepartmentPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+function userLabel(user: UserCandidate) {
+  return user.name || user.githubUsername || user.email || "Unknown User";
+}
+
+function getUserEffectiveRoles(user: UserCandidate): string[] {
+  const userRoles = Array.isArray(user.userRoles)
+    ? user.userRoles.map((role) => role.role)
+    : [];
+  const projectRoles = Array.isArray(user.projectMembers)
+    ? user.projectMembers.map((member) => member.role)
+    : [];
+
+  return [...userRoles, ...projectRoles].filter(Boolean) as string[];
+}
+
+function highestRoleRank(userRoles: string[]) {
+  return Math.max(0, ...userRoles.map((role) => ROLE_RANK[role] || 0));
+}
+
+function userBelongsToOrganization(user: UserCandidate, organizationId: string) {
+  const hasScopedRole = (user.userRoles || []).some((role) => {
+    return (
+      role.organizationId === organizationId ||
+      role.organization?.id === organizationId ||
+      role.department?.organizationId === organizationId ||
+      role.department?.organization?.id === organizationId
+    );
+  });
+
+  if (hasScopedRole) return true;
+
+  return (user.projectMembers || []).some((member) => {
+    const department = member.project?.department;
+    return (
+      department?.organizationId === organizationId ||
+      department?.organization?.id === organizationId
+    );
+  });
 }

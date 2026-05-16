@@ -46,18 +46,35 @@ type Organization = {
     departments?: number;
     userRoles?: number;
   };
+  userRoles?: Array<{
+    role?: string;
+    user?: {
+      id?: string | null;
+      name?: string | null;
+      githubUsername?: string | null;
+      email?: string | null;
+    };
+  }>;
+  managerNames?: string[];
+};
+
+type ManagerCandidate = {
+  id: string;
+  label: string;
 };
 
 interface OrganizationsTableClientProps {
   organizations: Organization[];
   accessToken: string;
   canManageOrganizations: boolean;
+  managerCandidates?: ManagerCandidate[];
 }
 
 export function OrganizationsTableClient({
   organizations,
   accessToken,
   canManageOrganizations,
+  managerCandidates = [],
 }: OrganizationsTableClientProps) {
   const router = useRouter();
   const [items, setItems] = useState(organizations);
@@ -65,6 +82,7 @@ export function OrganizationsTableClient({
   const [editing, setEditing] = useState<Organization | null>(null);
   const [editName, setEditName] = useState("");
   const [editLicensePlan, setEditLicensePlan] = useState("standard");
+  const [editManagerId, setEditManagerId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +96,10 @@ export function OrganizationsTableClient({
         organization.name.toLowerCase().includes(normalized) ||
         (organization.licensePlan || organization.license || "")
           .toLowerCase()
-          .includes(normalized),
+          .includes(normalized) ||
+        getOrganizationManagerNames(organization).some((manager) =>
+          manager.toLowerCase().includes(normalized),
+        ),
     );
   }, [items, query]);
 
@@ -86,6 +107,7 @@ export function OrganizationsTableClient({
     setEditing(organization);
     setEditName(organization.name);
     setEditLicensePlan(organization.licensePlan || organization.license || "standard");
+    setEditManagerId(currentOrganizationManagerIds(organization)[0] || "");
     setError(null);
   }
 
@@ -95,6 +117,7 @@ export function OrganizationsTableClient({
     setError(null);
 
     try {
+      const currentManagerIds = new Set(currentOrganizationManagerIds(editing));
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/organizations/${editing.id}`,
         {
@@ -106,6 +129,10 @@ export function OrganizationsTableClient({
           body: JSON.stringify({
             name: editName,
             license_plan: editLicensePlan,
+            manager_user_id:
+              editManagerId && !currentManagerIds.has(editManagerId)
+                ? editManagerId
+                : undefined,
           }),
         },
       );
@@ -191,6 +218,7 @@ export function OrganizationsTableClient({
                 <tr>
                   <th className="px-6 py-4">Organization Name</th>
                   <th className="px-6 py-4">License Plan</th>
+                  <th className="px-6 py-4">Managers</th>
                   <th className="px-6 py-4">Departments</th>
                   <th className="px-6 py-4">Scoped Roles</th>
                   <th className="px-6 py-4">Status</th>
@@ -201,18 +229,22 @@ export function OrganizationsTableClient({
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-6 py-4 text-center text-muted-foreground"
                     >
                       No organizations found.
                     </td>
                   </tr>
                 )}
-                {filtered.map((organization) => (
-                  <tr
-                    key={organization.id}
-                    className="transition-colors hover:bg-muted/20"
-                  >
+                {filtered.map((organization) => {
+                  const managerNames =
+                    getOrganizationManagerNames(organization);
+
+                  return (
+                    <tr
+                      key={organization.id}
+                      className="transition-colors hover:bg-muted/20"
+                    >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10 text-primary">
@@ -232,6 +264,16 @@ export function OrganizationsTableClient({
                           organization.license ||
                           "standard"}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        <span className="max-w-64 truncate">
+                          {managerNames.length > 0
+                            ? managerNames.join(", ")
+                            : "Not assigned"}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
                       {organization._count?.departments ||
@@ -278,6 +320,7 @@ export function OrganizationsTableClient({
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
                                 disabled={pendingId === organization.id}
+                                aria-label={`Open organization actions for ${organization.name}`}
                               >
                                 {pendingId === organization.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -309,8 +352,9 @@ export function OrganizationsTableClient({
                         )}
                       </div>
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -347,6 +391,31 @@ export function OrganizationsTableClient({
                 <option value="academic">Academic</option>
                 <option value="enterprise">Enterprise</option>
                 <option value="trial">Trial</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="org-manager">
+                Organization Manager
+              </label>
+              <select
+                id="org-manager"
+                value={editManagerId}
+                onChange={(event) => setEditManagerId(event.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                disabled={organizationManagerOptions(
+                  managerCandidates,
+                  editing,
+                ).length === 0}
+              >
+                {organizationManagerOptions(managerCandidates, editing).length ===
+                  0 && <option value="">Not assigned</option>}
+                {organizationManagerOptions(managerCandidates, editing).map(
+                  (candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.label}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
           </div>
@@ -411,4 +480,60 @@ export function OrganizationsTableClient({
       </Dialog>
     </>
   );
+}
+
+function currentOrganizationManagers(organization: Organization | null) {
+  return (organization?.userRoles || [])
+    .filter((role) => role.role === "ORGANIZATION_MANAGER" && role.user?.id)
+    .map((role) => ({
+      id: role.user!.id!,
+      label:
+        role.user?.name ||
+        role.user?.githubUsername ||
+        role.user?.email ||
+        "Unknown User",
+    }));
+}
+
+function currentOrganizationManagerIds(organization: Organization | null) {
+  return currentOrganizationManagers(organization).map((manager) => manager.id);
+}
+
+function organizationManagerOptions(
+  candidates: ManagerCandidate[],
+  organization: Organization | null,
+) {
+  const currentManagers = currentOrganizationManagers(organization).map(
+    (manager) => ({
+      ...manager,
+      label: `${manager.label} (Assigned)`,
+    }),
+  );
+  const currentManagerIds = new Set(currentManagers.map((manager) => manager.id));
+  const newCandidates = candidates.filter(
+    (candidate) => !currentManagerIds.has(candidate.id),
+  );
+
+  return [...currentManagers, ...newCandidates];
+}
+
+function getOrganizationManagerNames(organization: Organization): string[] {
+  if (Array.isArray(organization.managerNames)) {
+    return organization.managerNames.filter(Boolean);
+  }
+
+  if (!Array.isArray(organization.userRoles)) {
+    return [];
+  }
+
+  return organization.userRoles
+    .filter((role) => role.role === "ORGANIZATION_MANAGER")
+    .map(
+      (role) =>
+        role.user?.name ||
+        role.user?.githubUsername ||
+        role.user?.email ||
+        null,
+    )
+    .filter(Boolean) as string[];
 }

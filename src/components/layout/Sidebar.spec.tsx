@@ -135,7 +135,7 @@ describe("Sidebar role visibility", () => {
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
-            Authorization: "Bearer access-token",
+            "Content-Type": "application/json",
           }) as unknown,
           body: JSON.stringify({ refreshToken: "refresh-token" }),
         }),

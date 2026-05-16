@@ -66,8 +66,11 @@ export default async function ProjectTasksPage({
           accessToken={token}
           repository={project?.repository}
           initialTasks={tasksResult.data || []}
+          projectMembers={isProjectWide ? project?.members || [] : []}
           canSync={isProjectWide}
+          canAssignTasks={isProjectWide}
           isProjectWide={isProjectWide}
+          isLocked={project?.status === "LOCKED"}
         />
       </div>
     </DashboardLayout>

@@ -74,7 +74,8 @@ export default async function ProjectMembersPage({
         projectName={project.name}
         accessToken={token}
         initialMembers={members}
-        visibleUsers={usersResult.data || []}
+        visibleUsers={canManageMembers ? usersResult.data || [] : []}
+        visibleUsersError={canManageMembers ? usersResult.error : undefined}
         canManageMembers={canManageMembers}
         canAssignProjectManager={canAssignProjectManager}
       />

@@ -34,6 +34,11 @@ export function ProjectActions({
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false);
 
   async function runAction(action: "sync" | "lock") {
+    if (isLocked) {
+      setError("Cannot sync or lock after project lock");
+      return;
+    }
+
     setPendingAction(action);
     setError(null);
 
@@ -73,14 +78,14 @@ export function ProjectActions({
           variant="outline"
           className="gap-2"
           onClick={() => runAction("sync")}
-          disabled={pendingAction !== null}
+          disabled={pendingAction !== null || isLocked}
         >
           {pendingAction === "sync" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}
-          Sync Kanban
+          {isLocked ? "Sync Locked" : "Sync Kanban"}
         </Button>
         {canLockProject && (
           <Button

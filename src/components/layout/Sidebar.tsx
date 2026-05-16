@@ -100,16 +100,14 @@ export function Sidebar() {
   });
 
   async function handleSignOut() {
-    const accessToken = session?.user?.accessToken;
     const refreshToken = session?.user?.refreshToken;
 
-    if (accessToken && refreshToken) {
+    if (refreshToken) {
       try {
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({ refreshToken }),
         });

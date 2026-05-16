@@ -1,14 +1,20 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 
 function CallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const exchangeStarted = useRef(false);
 
   useEffect(() => {
+    if (exchangeStarted.current) {
+      return;
+    }
+
+    exchangeStarted.current = true;
     const code = searchParams.get('code');
 
     if (!code) {
@@ -31,7 +37,9 @@ function CallbackContent() {
       const tokens = json.success ? json.data : null;
 
       if (!response.ok || !tokens?.accessToken || !tokens?.refreshToken) {
-        throw new Error('Auth code exchange failed');
+        throw new Error(
+          json.error?.message || json.message || 'Auth code exchange failed',
+        );
       }
 
       const result = await signIn('credentials', {
@@ -44,12 +52,17 @@ function CallbackContent() {
       if (result?.ok) {
         router.push('/dashboard');
       } else {
-        router.push('/login?error=AuthFailed');
+        const error = result?.error || 'CredentialsSignInFailed';
+        router.push(`/login?error=${encodeURIComponent(error)}`);
       }
     };
 
-    exchangeCode().catch(() => {
-      router.push('/login?error=AuthFailed');
+    exchangeCode().catch((error) => {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'AuthFailed';
+      router.push(`/login?error=${encodeURIComponent(message)}`);
     });
   }, [searchParams, router]);
 

@@ -105,7 +105,10 @@ export default async function ProjectDetailPage({
     (task) => task.status === "IN_PROGRESS",
   ).length;
   const blockedTasks = tasks.filter((task) => task.status === "BLOCKED").length;
-  const totalTasks = tasks.length || project._count?.tasks || 0;
+  const scopedTaskFallback = canManageCurrentProject
+    ? project._count?.tasks || 0
+    : 0;
+  const totalTasks = tasks.length || scopedTaskFallback;
   const completionRate =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   const mergedPrs = pullRequests.filter((pr) => pr.status === "MERGED").length;
@@ -504,7 +507,10 @@ export default async function ProjectDetailPage({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total PRs</span>
                   <span className="font-medium">
-                    {pullRequests.length || project._count?.pullRequests || 0}
+                    {pullRequests.length ||
+                      (canManageCurrentProject
+                        ? project._count?.pullRequests || 0
+                        : 0)}
                   </span>
                 </div>
               </div>

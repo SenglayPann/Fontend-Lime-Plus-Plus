@@ -18,6 +18,8 @@ export default async function DepartmentsPage({
     resolvedSearchParams?.organization_id ||
     resolvedSearchParams?.organizationId;
   let departmentsResult: ServerApiResult<any[]> = { data: [], error: null };
+  let organizationsResult: ServerApiResult<any[]> = { data: [], error: null };
+  let usersResult: ServerApiResult<any[]> = { data: [], error: null };
   const roles = session?.user?.roles || [];
   const hasOrganizationScope = (
     session?.user?.scopes?.organizations || []
@@ -26,6 +28,7 @@ export default async function DepartmentsPage({
     (scope) => scope.role === "DEPARTMENT_MANAGER",
   );
   const canCreateDepartment = roles.includes("ADMIN") || hasOrganizationScope;
+  const canManageDepartment = canCreateDepartment || hasDepartmentScope;
   const isDepartmentOnlyManager =
     hasDepartmentScope && !roles.includes("ADMIN") && !hasOrganizationScope;
 
@@ -33,12 +36,31 @@ export default async function DepartmentsPage({
     const query = organizationId
       ? `?organization_id=${encodeURIComponent(organizationId)}`
       : "";
-    departmentsResult = await fetchServerApi<any[]>(
-      `/departments${query}`,
-      session.user.accessToken,
-      [],
-    );
+    const results = await Promise.all([
+      fetchServerApi<any[]>(`/departments${query}`, session.user.accessToken, []),
+      canCreateDepartment
+        ? fetchServerApi<any[]>("/organizations", session.user.accessToken, [])
+        : Promise.resolve({ data: [], error: null }),
+      canCreateDepartment
+        ? fetchServerApi<any[]>("/users", session.user.accessToken, [])
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    departmentsResult = results[0];
+    organizationsResult = results[1];
+    usersResult = results[2];
   }
+
+  const organizationScopeIds = new Set(
+    (session?.user?.scopes?.organizations || [])
+      .filter((scope) => scope.role === "ORGANIZATION_MANAGER")
+      .map((scope) => scope.id),
+  );
+  const editableOrganizations = roles.includes("ADMIN")
+    ? organizationsResult.data
+    : organizationsResult.data.filter((organization) =>
+        organizationScopeIds.has(organization.id),
+      );
 
   return (
     <DashboardLayout>
@@ -70,11 +92,26 @@ export default async function DepartmentsPage({
             {departmentsResult.error}
           </div>
         )}
+        {(organizationsResult.error || usersResult.error) &&
+          canCreateDepartment && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              {[organizationsResult.error, usersResult.error]
+                .filter(Boolean)
+                .join(" ")}
+            </div>
+          )}
 
         <DepartmentTable
           initialDepartments={departmentsResult.data}
           accessToken={session?.user?.accessToken || ""}
-          canManageDepartments={canCreateDepartment}
+          canManageDepartments={canManageDepartment}
+          canDeleteDepartments={canCreateDepartment}
+          canChangeDepartmentOrganization={canCreateDepartment}
+          canAssignDepartmentManager={canCreateDepartment}
+          organizations={editableOrganizations}
+          managerCandidates={usersResult.data}
+          actorRoles={roles}
+          actorUserId={session?.user?.id}
         />
       </div>
     </DashboardLayout>

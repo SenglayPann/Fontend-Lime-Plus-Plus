@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   FolderKanban,
@@ -89,6 +90,7 @@ export function UsersRolesClient({
   actorScopes,
 }: UsersRolesClientProps) {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [query, setQuery] = useState("");
   const [targetUser, setTargetUser] = useState<VisibleUser | null>(null);
   const [selectedRole, setSelectedRole] =
@@ -176,6 +178,7 @@ export function UsersRolesClient({
       }
 
       setTargetUser(null);
+      await updateSession();
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to assign role");
@@ -205,6 +208,7 @@ export function UsersRolesClient({
         );
       }
 
+      await updateSession();
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to remove role");

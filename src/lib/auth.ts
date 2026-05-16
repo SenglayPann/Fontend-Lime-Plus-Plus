@@ -81,9 +81,11 @@ export const authOptions: NextAuthOptions = {
         };
       }
 
-      // Return previous token if the access token has not expired yet
-      if (Date.now() < (token.accessTokenExpires as number)) {
-        return token;
+      if (
+        token.accessToken &&
+        Date.now() < (token.accessTokenExpires as number)
+      ) {
+        return refreshProfile(token);
       }
 
       // Access token has expired, try to update it
@@ -174,6 +176,45 @@ async function refreshAccessToken(token: any) {
     return {
       ...token,
       error: "RefreshAccessTokenError",
+    };
+  }
+}
+
+async function refreshProfile(token: any) {
+  try {
+    const profileResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token.accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+    const profileJson = await profileResponse.json();
+    const user = profileJson.success ? profileJson.data : null;
+
+    if (!profileResponse.ok || !user) {
+      throw user;
+    }
+
+    return {
+      ...token,
+      id: user.id,
+      role: user.roles?.[0] || "USER",
+      roles:
+        Array.isArray(user.roles) && user.roles.length > 0
+          ? user.roles
+          : ["USER"],
+      scopes: user.scopes,
+      error: undefined,
+    };
+  } catch (error) {
+    console.error("Error refreshing session profile", error);
+
+    return {
+      ...token,
+      error: "RefreshProfileError",
     };
   }
 }

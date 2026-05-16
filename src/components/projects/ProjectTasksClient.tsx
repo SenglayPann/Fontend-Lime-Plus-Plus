@@ -23,7 +23,9 @@ type Task = {
   externalTaskId?: string | null;
   title: string;
   status: string;
+  assigneeId?: string | null;
   assignee?: {
+    id?: string | null;
     name?: string | null;
     githubUsername?: string | null;
     email?: string | null;
@@ -47,13 +49,26 @@ type SyncSummary = {
   warnings?: string[];
 };
 
+type ProjectMember = {
+  userId: string;
+  user?: {
+    id?: string | null;
+    name?: string | null;
+    githubUsername?: string | null;
+    email?: string | null;
+  } | null;
+};
+
 interface ProjectTasksClientProps {
   projectId: string;
   accessToken: string;
   repository?: string | null;
   initialTasks: Task[];
+  projectMembers?: ProjectMember[];
   canSync: boolean;
+  canAssignTasks?: boolean;
   isProjectWide: boolean;
+  isLocked?: boolean;
 }
 
 function prUrl(repository: string | null | undefined, task: Task) {
@@ -65,18 +80,33 @@ function prUrl(repository: string | null | undefined, task: Task) {
   return `https://github.com/${repository}/pull/${prNumber}`;
 }
 
+function displayMember(member: ProjectMember) {
+  return (
+    member.user?.name ||
+    member.user?.githubUsername ||
+    member.user?.email ||
+    member.userId
+  );
+}
+
 export function ProjectTasksClient({
   projectId,
   accessToken,
   repository,
   initialTasks,
+  projectMembers = [],
   canSync,
+  canAssignTasks = canSync,
   isProjectWide,
+  isLocked = false,
 }: ProjectTasksClientProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [isSyncing, setIsSyncing] = useState(false);
+  const [pendingAssignmentId, setPendingAssignmentId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
 
@@ -104,6 +134,11 @@ export function ProjectTasksClient({
   }, [initialTasks, query, status]);
 
   async function syncTasks() {
+    if (isLocked) {
+      setError("Cannot sync tasks after project lock");
+      return;
+    }
+
     setIsSyncing(true);
     setError(null);
     setSyncSummary(null);
@@ -133,6 +168,40 @@ export function ProjectTasksClient({
     }
   }
 
+  async function assignTask(taskId: string, assigneeId: string) {
+    if (!assigneeId || isLocked) return;
+
+    setPendingAssignmentId(taskId);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tasks/${taskId}/assign`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ assignee_id: assigneeId }),
+        },
+      );
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          json?.error?.message || json?.message || "Failed to assign task",
+        );
+      }
+
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Failed to assign task");
+    } finally {
+      setPendingAssignmentId(null);
+    }
+  }
+
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -154,13 +223,17 @@ export function ProjectTasksClient({
         </div>
         {canSync && (
           <div className="flex flex-col items-end gap-2">
-            <Button className="gap-2" onClick={syncTasks} disabled={isSyncing}>
+            <Button
+              className="gap-2"
+              onClick={syncTasks}
+              disabled={isSyncing || isLocked}
+            >
               {isSyncing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              Sync Kanban
+              {isLocked ? "Sync Locked" : "Sync Kanban"}
             </Button>
             {error && (
               <p className="max-w-md text-right text-xs font-medium text-destructive">
@@ -238,6 +311,9 @@ export function ProjectTasksClient({
                 {tasks.map((task) => {
                   const primaryPr = task.pullRequests?.[0];
                   const url = prUrl(repository, task);
+                  const canEditAssignee =
+                    canAssignTasks && !isLocked && projectMembers.length > 0;
+                  const assigneeId = task.assigneeId || task.assignee?.id || "";
                   const assignee =
                     task.assignee?.name ||
                     task.assignee?.githubUsername ||
@@ -277,7 +353,28 @@ export function ProjectTasksClient({
                         </span>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {assignee}
+                        {canEditAssignee ? (
+                          <select
+                            value={assigneeId}
+                            onChange={(event) =>
+                              assignTask(task.id, event.target.value)
+                            }
+                            disabled={pendingAssignmentId !== null}
+                            className="h-9 max-w-56 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                            aria-label={`Assign ${task.title}`}
+                          >
+                            <option value="" disabled>
+                              Unassigned
+                            </option>
+                            {projectMembers.map((member) => (
+                              <option key={member.userId} value={member.userId}>
+                                {displayMember(member)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          assignee
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {primaryPr ? (

@@ -11,16 +11,26 @@ import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 export default async function OrganizationsPage() {
   const session = await getServerSession(authOptions);
   let organizationsResult: ServerApiResult<any[]> = { data: [], error: null };
+  let usersResult: ServerApiResult<any[]> = { data: [], error: null };
   const roles = session?.user?.roles || [];
   const canCreateOrganization = roles.includes("ADMIN");
 
   if (session?.user?.accessToken) {
-    organizationsResult = await fetchServerApi<any[]>(
-      "/organizations",
-      session.user.accessToken,
-      [],
-    );
+    const results = await Promise.all([
+      fetchServerApi<any[]>("/organizations", session.user.accessToken, []),
+      canCreateOrganization
+        ? fetchServerApi<any[]>("/users", session.user.accessToken, [])
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    organizationsResult = results[0];
+    usersResult = results[1];
   }
+
+  const managerCandidates = usersResult.data.map((user) => ({
+    id: user.id,
+    label:
+      user.name || user.githubUsername || user.email || "Unknown User",
+  }));
 
   return (
     <DashboardLayout>
@@ -48,11 +58,17 @@ export default async function OrganizationsPage() {
             {organizationsResult.error}
           </div>
         )}
+        {usersResult.error && canCreateOrganization && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {usersResult.error}
+          </div>
+        )}
 
         <OrganizationsTableClient
           organizations={organizationsResult.data}
           accessToken={session?.user?.accessToken || ""}
           canManageOrganizations={canCreateOrganization}
+          managerCandidates={managerCandidates}
         />
       </div>
     </DashboardLayout>

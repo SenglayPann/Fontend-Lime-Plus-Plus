@@ -141,6 +141,14 @@ export function ScopeDashboardView({ data, backHref }: ScopeDashboardViewProps) 
                   ? `Organization dashboard - ${data.scope.licensePlan || "standard"}`
                   : `${data.scope.organizationName || "Organization"} department dashboard`}
               </p>
+              {data.scope.managers && (
+                <p className="text-sm text-muted-foreground">
+                  Managers:{" "}
+                  {data.scope.managers.length > 0
+                    ? data.scope.managers.join(", ")
+                    : "Not assigned"}
+                </p>
+              )}
             </div>
           </div>
         </div>

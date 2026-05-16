@@ -81,40 +81,82 @@ type MyContributions = {
   warnings: string[];
 };
 
+type MyContributionsResult = {
+  data: MyContributions | null;
+  error: string | null;
+  status?: number;
+};
+
 async function fetchMyContributions(
   token: string,
-): Promise<MyContributions | null> {
+): Promise<MyContributionsResult> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!baseUrl) {
+    return { data: null, error: "Backend API URL is not configured" };
+  }
+
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/dashboard/my-contributions`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return null;
+    const res = await fetch(`${baseUrl}/dashboard/my-contributions`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
     const json = await res.json();
-    return json.success ? json.data : null;
+
+    if (!res.ok) {
+      return {
+        data: null,
+        error: json.error?.message || json.message || "Request failed",
+        status: res.status,
+      };
+    }
+
+    return { data: json.success ? json.data : null, error: null, status: res.status };
   } catch (error) {
     console.error("Error fetching my contributions:", error);
-    return null;
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Request failed",
+    };
   }
 }
 
 export default async function MyContributionsPage() {
   const session = await getServerSession(authOptions);
-  const data = session?.user?.accessToken
+  const result = session?.user?.accessToken
     ? await fetchMyContributions(session.user.accessToken)
-    : null;
+    : { data: null, error: "You need to sign in to view contributions" };
+  const data = result.data;
 
   return (
     <DashboardLayout>
-      {!data || data.projects.length === 0 ? (
+      {result.error ? (
+        <ContributionErrorState message={result.error} status={result.status} />
+      ) : !data || data.projects.length === 0 ? (
         <NoProjectWorkspace data={data} />
       ) : (
         <ContributorWorkspace data={data} />
       )}
     </DashboardLayout>
+  );
+}
+
+function ContributionErrorState({
+  message,
+  status,
+}: {
+  message: string;
+  status?: number;
+}) {
+  return (
+    <div className="mx-auto max-w-3xl rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="mb-1 flex items-center gap-2 font-semibold">
+        <AlertTriangle className="h-4 w-4" /> Contributions could not be loaded
+      </div>
+      <p>
+        {status ? `Request failed with status ${status}: ` : ""}
+        {message}
+      </p>
+    </div>
   );
 }
 

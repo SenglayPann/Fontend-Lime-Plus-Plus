@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Edit2,
   GraduationCap,
   MoreHorizontal,
   ExternalLink,
@@ -10,8 +11,10 @@ import {
   Loader2,
   Trash2,
   Search,
+  UserCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -30,21 +33,76 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface DepartmentTableProps {
   initialDepartments: any[];
   accessToken: string;
   canManageDepartments?: boolean;
+  canDeleteDepartments?: boolean;
+  canChangeDepartmentOrganization?: boolean;
+  canAssignDepartmentManager?: boolean;
+  organizations?: Array<{ id: string; name: string }>;
+  managerCandidates?: DepartmentManagerCandidate[];
+  actorRoles?: string[];
+  actorUserId?: string;
 }
+
+type DepartmentManagerCandidate = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  githubUsername?: string | null;
+  userRoles?: Array<{
+    role?: string | null;
+    organizationId?: string | null;
+    organization?: { id?: string | null } | null;
+    department?: {
+      organizationId?: string | null;
+      organization?: { id?: string | null } | null;
+    } | null;
+  }>;
+  projectMembers?: Array<{
+    role?: string | null;
+    project?: {
+      department?: {
+        organizationId?: string | null;
+        organization?: { id?: string | null } | null;
+      } | null;
+    } | null;
+  }>;
+};
+
+const ROLE_RANK: Record<string, number> = {
+  ADMIN: 5,
+  ORGANIZATION_MANAGER: 4,
+  DEPARTMENT_MANAGER: 3,
+  PROJECT_MANAGER: 2,
+  PROJECT_MEMBER: 1,
+};
 
 export function DepartmentTable({
   initialDepartments,
   accessToken,
   canManageDepartments = false,
+  canDeleteDepartments = canManageDepartments,
+  canChangeDepartmentOrganization = false,
+  canAssignDepartmentManager = false,
+  organizations = [],
+  managerCandidates = [],
+  actorRoles = [],
+  actorUserId,
 }: DepartmentTableProps) {
+  const router = useRouter();
   const [departments, setDepartments] = useState(initialDepartments);
   const [filter, setFilter] = useState("");
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editOrganizationId, setEditOrganizationId] = useState("");
+  const [editManagerId, setEditManagerId] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +112,93 @@ export function DepartmentTable({
       dept.name.toLowerCase().includes(filter.toLowerCase()) ||
       (dept.organization?.name || "")
         .toLowerCase()
-        .includes(filter.toLowerCase()),
+        .includes(filter.toLowerCase()) ||
+      getDepartmentManagerNames(dept).some((manager) =>
+        manager.toLowerCase().includes(filter.toLowerCase()),
+      ),
   );
+
+  const openEdit = (department: any) => {
+    setEditTarget(department);
+    setEditName(department.name || "");
+    setEditOrganizationId(
+      department.organizationId || department.organization?.id || "",
+    );
+    setEditManagerId(currentDepartmentManagerIds(department)[0] || "");
+    setEditDescription(department.description || "");
+    setError(null);
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+
+    setPendingId(editTarget.id);
+    setError(null);
+
+    try {
+      const body: Record<string, string | undefined> = {
+        name: editName.trim(),
+        description: editDescription.trim(),
+      };
+
+      if (canChangeDepartmentOrganization) {
+        body.organization_id = editOrganizationId;
+      }
+
+      const currentManagerIds = new Set(currentDepartmentManagerIds(editTarget));
+      if (
+        canAssignDepartmentManager &&
+        editManagerId &&
+        !currentManagerIds.has(editManagerId)
+      ) {
+        body.manager_user_id = editManagerId;
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/departments/${editTarget.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          json?.error?.message || json?.message || "Failed to update department",
+        );
+      }
+
+      const updated = json?.success ? json.data : json;
+      setDepartments((prev) =>
+        prev.map((department) =>
+          department.id === editTarget.id
+            ? {
+                ...department,
+                ...updated,
+                name: updated?.name ?? editName.trim(),
+                description: updated?.description ?? editDescription.trim(),
+              }
+            : department,
+        ),
+      );
+      setEditTarget(null);
+      router.refresh();
+    } catch (error) {
+      console.error("Error updating department:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An error occurred while updating",
+      );
+    } finally {
+      setPendingId(null);
+    }
+  };
 
   const handleDelete = async (department: any) => {
     setPendingId(department.id);
@@ -119,6 +262,7 @@ export function DepartmentTable({
               <tr>
                 <th className="px-6 py-4">Department Name</th>
                 <th className="px-6 py-4">Organization</th>
+                <th className="px-6 py-4">Managers</th>
                 <th className="px-6 py-4">Active Projects</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
@@ -128,7 +272,7 @@ export function DepartmentTable({
               {filteredDepartments.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-4 text-center text-muted-foreground"
                   >
                     No departments found.
@@ -138,6 +282,7 @@ export function DepartmentTable({
               {filteredDepartments.map((dept) => {
                 const projectCount = dept._count?.projects || 0;
                 const status = projectCount > 0 ? "Active" : "Idle";
+                const managerNames = getDepartmentManagerNames(dept);
 
                 return (
                   <tr
@@ -158,6 +303,16 @@ export function DepartmentTable({
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Building2 className="h-3 w-3" />{" "}
                         {dept.organization?.name || "N/A"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <UserCircle className="h-3 w-3" />
+                        <span className="max-w-64 truncate">
+                          {managerNames.length > 0
+                            ? managerNames.join(", ")
+                            : "Not assigned"}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -190,7 +345,7 @@ export function DepartmentTable({
                           </Link>
                         </Button>
 
-                        {canManageDepartments && (
+                        {(canManageDepartments || canDeleteDepartments) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -198,6 +353,7 @@ export function DepartmentTable({
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
                                 disabled={pendingId === dept.id}
+                                aria-label={`Open department actions for ${dept.name}`}
                               >
                                 {pendingId === dept.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -209,15 +365,25 @@ export function DepartmentTable({
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="gap-2 text-destructive focus:text-destructive cursor-pointer"
-                                onClick={() => {
-                                  setDeleteTarget(dept);
-                                  setError(null);
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" /> Delete
-                              </DropdownMenuItem>
+                              {canManageDepartments && (
+                                <DropdownMenuItem
+                                  className="gap-2 cursor-pointer"
+                                  onClick={() => openEdit(dept)}
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" /> Edit
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteDepartments && (
+                                <DropdownMenuItem
+                                  className="gap-2 text-destructive focus:text-destructive cursor-pointer"
+                                  onClick={() => {
+                                    setDeleteTarget(dept);
+                                    setError(null);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -230,6 +396,146 @@ export function DepartmentTable({
           </table>
         </div>
       </CardContent>
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit department</DialogTitle>
+            <DialogDescription>Update department details.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="department-name">
+                Name
+              </label>
+              <Input
+                id="department-name"
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                maxLength={120}
+              />
+            </div>
+            {canChangeDepartmentOrganization && (
+              <div className="space-y-2">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="department-organization"
+                >
+                  Organization
+                </label>
+                <select
+                  id="department-organization"
+                  value={editOrganizationId}
+                  onChange={(event) => {
+                    setEditOrganizationId(event.target.value);
+                    setEditManagerId("");
+                  }}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                  disabled={organizations.length === 0}
+                >
+                  <option value="" disabled>
+                    Select organization
+                  </option>
+                  {organizations.map((organization) => (
+                    <option key={organization.id} value={organization.id}>
+                      {organization.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {(canAssignDepartmentManager ||
+              currentDepartmentManagers(editTarget).length > 0) && (
+              <div className="space-y-2">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="department-manager"
+                >
+                  Department Manager
+                </label>
+                <select
+                  id="department-manager"
+                  value={editManagerId}
+                  onChange={(event) => setEditManagerId(event.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                  disabled={
+                    !canAssignDepartmentManager ||
+                    departmentManagerOptions(
+                      managerCandidates,
+                      editTarget,
+                      editOrganizationId,
+                      actorRoles,
+                      actorUserId,
+                    ).length === 0
+                  }
+                >
+                  {departmentManagerOptions(
+                    managerCandidates,
+                    editTarget,
+                    editOrganizationId,
+                    actorRoles,
+                    actorUserId,
+                    canAssignDepartmentManager,
+                  ).length === 0 && <option value="">Not assigned</option>}
+                  {departmentManagerOptions(
+                    managerCandidates,
+                    editTarget,
+                    editOrganizationId,
+                    actorRoles,
+                    actorUserId,
+                    canAssignDepartmentManager,
+                  ).map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {userLabel(candidate)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <label
+                className="text-sm font-medium"
+                htmlFor="department-description"
+              >
+                Description
+              </label>
+              <Textarea
+                id="department-description"
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+                maxLength={1000}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditTarget(null)}
+              disabled={pendingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleEdit}
+              disabled={
+                !editName.trim() ||
+                pendingId !== null ||
+                (canChangeDepartmentOrganization && !editOrganizationId)
+              }
+              className="gap-2"
+            >
+              {pendingId && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={!!deleteTarget}
         onOpenChange={(open) => {
@@ -269,4 +575,123 @@ export function DepartmentTable({
       </Dialog>
     </Card>
   );
+}
+
+function currentDepartmentManagers(
+  department: any | null,
+): DepartmentManagerCandidate[] {
+  return (department?.userRoles || [])
+    .filter((role: any) => role.role === "DEPARTMENT_MANAGER" && role.user?.id)
+    .map((role: any) => ({
+      id: role.user.id,
+      name: role.user.name,
+      githubUsername: role.user.githubUsername,
+      email: role.user.email,
+      assigned: true,
+    }));
+}
+
+function currentDepartmentManagerIds(department: any | null) {
+  return currentDepartmentManagers(department).map((manager) => manager.id);
+}
+
+function departmentManagerOptions(
+  candidates: DepartmentManagerCandidate[],
+  department: any | null,
+  organizationId: string,
+  actorRoles: string[],
+  actorUserId?: string,
+  canAssignDepartmentManager = true,
+): DepartmentManagerCandidate[] {
+  const currentManagers = currentDepartmentManagers(department);
+  const currentManagerIds = new Set(
+    currentManagers.map((manager: DepartmentManagerCandidate) => manager.id),
+  );
+  const currentOptions = currentManagers.map((manager) => ({
+    ...manager,
+    name: `${userLabel(manager)} (Assigned)`,
+  }));
+
+  if (!organizationId || !canAssignDepartmentManager) {
+    return currentOptions;
+  }
+
+  const actorRank = highestRoleRank(actorRoles);
+
+  const newCandidates = candidates.filter((candidate) => {
+    if (currentManagerIds.has(candidate.id)) return false;
+    if (actorRoles.includes("ADMIN")) return true;
+    if (candidate.id === actorUserId) return true;
+
+    return (
+      userBelongsToOrganization(candidate, organizationId) &&
+      highestRoleRank(getUserEffectiveRoles(candidate)) < actorRank
+    );
+  });
+
+  return [...currentOptions, ...newCandidates];
+}
+
+function userLabel(user: DepartmentManagerCandidate) {
+  return user.name || user.githubUsername || user.email || "Unknown User";
+}
+
+function getUserEffectiveRoles(user: DepartmentManagerCandidate): string[] {
+  const userRoles = Array.isArray(user.userRoles)
+    ? user.userRoles.map((role) => role.role)
+    : [];
+  const projectRoles = Array.isArray(user.projectMembers)
+    ? user.projectMembers.map((member) => member.role)
+    : [];
+
+  return [...userRoles, ...projectRoles].filter(Boolean) as string[];
+}
+
+function highestRoleRank(userRoles: string[]) {
+  return Math.max(0, ...userRoles.map((role) => ROLE_RANK[role] || 0));
+}
+
+function userBelongsToOrganization(
+  user: DepartmentManagerCandidate,
+  organizationId: string,
+) {
+  const hasScopedRole = (user.userRoles || []).some((role) => {
+    return (
+      role.organizationId === organizationId ||
+      role.organization?.id === organizationId ||
+      role.department?.organizationId === organizationId ||
+      role.department?.organization?.id === organizationId
+    );
+  });
+
+  if (hasScopedRole) return true;
+
+  return (user.projectMembers || []).some((member) => {
+    const department = member.project?.department;
+    return (
+      department?.organizationId === organizationId ||
+      department?.organization?.id === organizationId
+    );
+  });
+}
+
+function getDepartmentManagerNames(department: any): string[] {
+  if (Array.isArray(department.managerNames)) {
+    return department.managerNames.filter(Boolean);
+  }
+
+  if (!Array.isArray(department.userRoles)) {
+    return [];
+  }
+
+  return department.userRoles
+    .filter((role: any) => role.role === "DEPARTMENT_MANAGER")
+    .map(
+      (role: any) =>
+        role.user?.name ||
+        role.user?.githubUsername ||
+        role.user?.email ||
+        null,
+    )
+    .filter(Boolean);
 }

@@ -6,6 +6,10 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: jest.fn() }),
 }));
 
+jest.mock("next-auth/react", () => ({
+  useSession: () => ({ update: jest.fn() }),
+}));
+
 describe("UsersRolesClient", () => {
   it("does not crash when a project membership role is missing", () => {
     render(

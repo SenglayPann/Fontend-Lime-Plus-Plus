@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -61,6 +62,7 @@ interface ProjectMembersClientProps {
   accessToken: string;
   initialMembers: ProjectMember[];
   visibleUsers: VisibleUser[];
+  visibleUsersError?: string | null;
   canManageMembers: boolean;
   canAssignProjectManager: boolean;
 }
@@ -85,10 +87,12 @@ export function ProjectMembersClient({
   accessToken,
   initialMembers,
   visibleUsers,
+  visibleUsersError,
   canManageMembers,
   canAssignProjectManager,
 }: ProjectMembersClientProps) {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [query, setQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -155,6 +159,7 @@ export function ProjectMembersClient({
       setIsDialogOpen(false);
       setSelectedUserId("");
       setSelectedRole("PROJECT_MEMBER");
+      await updateSession();
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to save member");
@@ -184,6 +189,7 @@ export function ProjectMembersClient({
         );
       }
 
+      await updateSession();
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Failed to remove member");
@@ -210,7 +216,7 @@ export function ProjectMembersClient({
           </h1>
           <p className="text-muted-foreground">{projectName}</p>
         </div>
-        {canManageMembers && candidateUsers.length > 0 && (
+        {canManageMembers && !visibleUsersError && candidateUsers.length > 0 && (
           <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
             <UserPlus className="h-4 w-4" /> Add Member
           </Button>
@@ -220,6 +226,12 @@ export function ProjectMembersClient({
       {error && (
         <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm font-medium text-destructive">
           {error}
+        </div>
+      )}
+
+      {canManageMembers && visibleUsersError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          User candidates could not be loaded: {visibleUsersError}
         </div>
       )}
 
