@@ -162,12 +162,7 @@ export function DepartmentTable({
         body.organization_id = editOrganizationId;
       }
 
-      const currentManagerIds = new Set(currentDepartmentManagerIds(editTarget));
-      if (
-        canAssignDepartmentManager &&
-        editManagerId &&
-        !currentManagerIds.has(editManagerId)
-      ) {
+      if (canAssignDepartmentManager) {
         body.manager_user_id = editManagerId;
       }
 
@@ -474,30 +469,14 @@ export function DepartmentTable({
                 >
                   Department Manager
                 </label>
-                <select
+                 <select
                   id="department-manager"
                   value={editManagerId}
                   onChange={(event) => setEditManagerId(event.target.value)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
-                  disabled={
-                    !canAssignDepartmentManager ||
-                    departmentManagerOptions(
-                      managerCandidates,
-                      editTarget,
-                      editOrganizationId,
-                      actorRoles,
-                      actorUserId,
-                    ).length === 0
-                  }
+                  disabled={!canAssignDepartmentManager}
                 >
-                  {departmentManagerOptions(
-                    managerCandidates,
-                    editTarget,
-                    editOrganizationId,
-                    actorRoles,
-                    actorUserId,
-                    canAssignDepartmentManager,
-                  ).length === 0 && <option value="">Not assigned</option>}
+                  <option value="">Not assigned</option>
                   {departmentManagerOptions(
                     managerCandidates,
                     editTarget,

@@ -142,10 +142,7 @@ export function OrganizationsTableClient({
           body: JSON.stringify({
             name: editName,
             license_plan: editLicensePlan,
-            manager_user_id:
-              editManagerId && !currentManagerIds.has(editManagerId)
-                ? editManagerId
-                : undefined,
+            manager_user_id: editManagerId,
           }),
         },
       );
@@ -415,13 +412,8 @@ export function OrganizationsTableClient({
                 value={editManagerId}
                 onChange={(event) => setEditManagerId(event.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
-                disabled={organizationManagerOptions(
-                  managerCandidates,
-                  editing,
-                ).length === 0}
               >
-                {organizationManagerOptions(managerCandidates, editing).length ===
-                  0 && <option value="">Not assigned</option>}
+                <option value="">Not assigned</option>
                 {organizationManagerOptions(managerCandidates, editing).map(
                   (candidate) => (
                     <option key={candidate.id} value={candidate.id}>
