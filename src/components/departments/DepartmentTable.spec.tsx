@@ -1,16 +1,23 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { DepartmentTable } from "./DepartmentTable";
 
+const mockRefresh = jest.fn();
+const mockReplace = jest.fn();
+
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: jest.fn() }),
+  usePathname: () => "/departments",
+  useRouter: () => ({ refresh: mockRefresh, replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("DepartmentTable", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_API_URL = "http://api.test";
     global.fetch = jest.fn();
+    mockRefresh.mockClear();
+    mockReplace.mockClear();
   });
 
   afterEach(() => {
@@ -41,6 +48,42 @@ describe("DepartmentTable", () => {
 
     expect(screen.getByText("Computer Science")).toBeInTheDocument();
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+  });
+
+  it("filters departments by search text", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <DepartmentTable
+        accessToken="token"
+        initialDepartments={[
+          {
+            id: "dept-1",
+            name: "Computer Science",
+            description: "Algorithms and systems",
+            organization: { name: "Engineering" },
+            _count: { projects: 2 },
+            userRoles: [],
+          },
+          {
+            id: "dept-2",
+            name: "Industrial Design",
+            description: "Studio",
+            organization: { name: "Arts" },
+            _count: { projects: 0 },
+            userRoles: [],
+          },
+        ]}
+        canManageDepartments
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("Filter departments..."), "systems");
+
+    await waitFor(() => {
+      expect(screen.getByText("Computer Science")).toBeInTheDocument();
+      expect(screen.queryByText("Industrial Design")).not.toBeInTheDocument();
+    });
   });
 
   it("lets department managers edit department details", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Edit2,
   GraduationCap,
@@ -35,11 +35,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useDebouncedSearchParam } from "@/lib/use-debounced-search-param";
 import { cn } from "@/lib/utils";
 
 interface DepartmentTableProps {
   initialDepartments: any[];
   accessToken: string;
+  initialSearch?: string;
   canManageDepartments?: boolean;
   canDeleteDepartments?: boolean;
   canChangeDepartmentOrganization?: boolean;
@@ -86,6 +88,7 @@ const ROLE_RANK: Record<string, number> = {
 export function DepartmentTable({
   initialDepartments,
   accessToken,
+  initialSearch = "",
   canManageDepartments = false,
   canDeleteDepartments = canManageDepartments,
   canChangeDepartmentOrganization = false,
@@ -97,7 +100,7 @@ export function DepartmentTable({
 }: DepartmentTableProps) {
   const router = useRouter();
   const [departments, setDepartments] = useState(initialDepartments);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(initialSearch);
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [editName, setEditName] = useState("");
   const [editOrganizationId, setEditOrganizationId] = useState("");
@@ -107,16 +110,30 @@ export function DepartmentTable({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const filteredDepartments = departments.filter(
-    (dept) =>
-      dept.name.toLowerCase().includes(filter.toLowerCase()) ||
-      (dept.organization?.name || "")
-        .toLowerCase()
-        .includes(filter.toLowerCase()) ||
-      getDepartmentManagerNames(dept).some((manager) =>
-        manager.toLowerCase().includes(filter.toLowerCase()),
-      ),
-  );
+  const debouncedFilter = useDebouncedSearchParam(filter);
+
+  useEffect(() => {
+    setDepartments(initialDepartments);
+  }, [initialDepartments]);
+
+  useEffect(() => {
+    setFilter(initialSearch);
+  }, [initialSearch]);
+
+  const filteredDepartments = useMemo(() => {
+    const normalized = debouncedFilter.trim().toLowerCase();
+    if (!normalized) return departments;
+
+    return departments.filter(
+      (dept) =>
+        dept.name.toLowerCase().includes(normalized) ||
+        (dept.description || "").toLowerCase().includes(normalized) ||
+        (dept.organization?.name || "").toLowerCase().includes(normalized) ||
+        getDepartmentManagerNames(dept).some((manager) =>
+          manager.toLowerCase().includes(normalized),
+        ),
+    );
+  }, [departments, debouncedFilter]);
 
   const openEdit = (department: any) => {
     setEditTarget(department);

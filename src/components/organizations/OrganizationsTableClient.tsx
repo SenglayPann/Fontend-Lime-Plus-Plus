@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useDebouncedSearchParam } from "@/lib/use-debounced-search-param";
 import { cn } from "@/lib/utils";
 
 type Organization = {
@@ -67,6 +68,7 @@ interface OrganizationsTableClientProps {
   organizations: Organization[];
   accessToken: string;
   canManageOrganizations: boolean;
+  initialSearch?: string;
   managerCandidates?: ManagerCandidate[];
 }
 
@@ -74,11 +76,12 @@ export function OrganizationsTableClient({
   organizations,
   accessToken,
   canManageOrganizations,
+  initialSearch = "",
   managerCandidates = [],
 }: OrganizationsTableClientProps) {
   const router = useRouter();
   const [items, setItems] = useState(organizations);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialSearch);
   const [editing, setEditing] = useState<Organization | null>(null);
   const [editName, setEditName] = useState("");
   const [editLicensePlan, setEditLicensePlan] = useState("standard");
@@ -87,8 +90,18 @@ export function OrganizationsTableClient({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const debouncedQuery = useDebouncedSearchParam(query);
+
+  useEffect(() => {
+    setItems(organizations);
+  }, [organizations]);
+
+  useEffect(() => {
+    setQuery(initialSearch);
+  }, [initialSearch]);
+
   const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = debouncedQuery.trim().toLowerCase();
     if (!normalized) return items;
 
     return items.filter(
@@ -101,7 +114,7 @@ export function OrganizationsTableClient({
           manager.toLowerCase().includes(normalized),
         ),
     );
-  }, [items, query]);
+  }, [items, debouncedQuery]);
 
   function openEdit(organization: Organization) {
     setEditing(organization);

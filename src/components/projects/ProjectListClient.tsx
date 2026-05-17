@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -20,16 +20,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useDebouncedSearchParam } from "@/lib/use-debounced-search-param";
 import { cn } from "@/lib/utils";
 
 type Project = {
   id: string;
   name: string;
   repository?: string | null;
+  externalProjectId?: string | null;
+  githubRepositoryId?: string | null;
   status: string;
   updatedAt?: string | null;
   createdAt?: string | null;
-  department?: { name?: string | null } | null;
+  department?: {
+    name?: string | null;
+    organization?: { name?: string | null } | null;
+  } | null;
   members?: unknown[];
   _count?: { members?: number };
 };
@@ -37,26 +43,44 @@ type Project = {
 interface ProjectListClientProps {
   initialProjects: Project[];
   departmentId?: string;
+  initialSearch?: string;
   canCreateProject: boolean;
 }
 
 export function ProjectListClient({
   initialProjects,
   departmentId,
+  initialSearch = "",
   canCreateProject,
 }: ProjectListClientProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialSearch);
   const [status, setStatus] = useState("ALL");
 
+  const debouncedQuery = useDebouncedSearchParam(query);
+
+  useEffect(() => {
+    setQuery(initialSearch);
+  }, [initialSearch]);
+
   const projects = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = debouncedQuery.trim().toLowerCase();
 
     return initialProjects.filter((project) => {
       const matchesQuery =
         !normalizedQuery ||
         project.name.toLowerCase().includes(normalizedQuery) ||
         (project.repository || "").toLowerCase().includes(normalizedQuery) ||
+        (project.externalProjectId || "")
+          .toLowerCase()
+          .includes(normalizedQuery) ||
+        (project.githubRepositoryId || "")
+          .toLowerCase()
+          .includes(normalizedQuery) ||
+        project.status.toLowerCase().includes(normalizedQuery) ||
         (project.department?.name || "")
+          .toLowerCase()
+          .includes(normalizedQuery) ||
+        (project.department?.organization?.name || "")
           .toLowerCase()
           .includes(normalizedQuery);
 
@@ -64,7 +88,7 @@ export function ProjectListClient({
 
       return matchesQuery && matchesStatus;
     });
-  }, [initialProjects, query, status]);
+  }, [debouncedQuery, initialProjects, status]);
 
   return (
     <div className="space-y-8">

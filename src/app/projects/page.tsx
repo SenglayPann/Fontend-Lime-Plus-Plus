@@ -7,12 +7,17 @@ import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ departmentId?: string; department_id?: string }>;
+  searchParams?: Promise<{
+    departmentId?: string;
+    department_id?: string;
+    search?: string;
+  }>;
 }) {
   const session = await getServerSession(authOptions);
   const resolvedSearchParams = await searchParams;
   const departmentId =
     resolvedSearchParams?.department_id || resolvedSearchParams?.departmentId;
+  const search = resolvedSearchParams?.search?.trim() || "";
   const roles = session?.user?.roles || [];
   const hasOrganizationScope = (
     session?.user?.scopes?.organizations || []
@@ -25,9 +30,14 @@ export default async function ProjectsPage({
   let projectsResult: ServerApiResult<any[]> = { data: [], error: null };
 
   if (session?.user?.accessToken) {
-    const query = departmentId
-      ? `?department_id=${encodeURIComponent(departmentId)}`
-      : "";
+    const params = new URLSearchParams();
+    if (departmentId) {
+      params.set("department_id", departmentId);
+    }
+    if (search) {
+      params.set("search", search);
+    }
+    const query = params.toString() ? `?${params.toString()}` : "";
     projectsResult = await fetchServerApi<any[]>(
       `/projects${query}`,
       session.user.accessToken,
@@ -45,6 +55,7 @@ export default async function ProjectsPage({
       <ProjectListClient
         initialProjects={projectsResult.data}
         departmentId={departmentId}
+        initialSearch={search}
         canCreateProject={canCreateProject}
       />
     </DashboardLayout>

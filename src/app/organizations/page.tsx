@@ -8,16 +8,27 @@ import { authOptions } from "@/lib/auth";
 import { OrganizationsTableClient } from "@/components/organizations/OrganizationsTableClient";
 import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 
-export default async function OrganizationsPage() {
+export default async function OrganizationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ search?: string }>;
+}) {
   const session = await getServerSession(authOptions);
+  const resolvedSearchParams = await searchParams;
+  const search = resolvedSearchParams?.search?.trim() || "";
   let organizationsResult: ServerApiResult<any[]> = { data: [], error: null };
   let usersResult: ServerApiResult<any[]> = { data: [], error: null };
   const roles = session?.user?.roles || [];
   const canCreateOrganization = roles.includes("ADMIN");
 
   if (session?.user?.accessToken) {
+    const query = search ? `?search=${encodeURIComponent(search)}` : "";
     const results = await Promise.all([
-      fetchServerApi<any[]>("/organizations", session.user.accessToken, []),
+      fetchServerApi<any[]>(
+        `/organizations${query}`,
+        session.user.accessToken,
+        [],
+      ),
       canCreateOrganization
         ? fetchServerApi<any[]>("/users", session.user.accessToken, [])
         : Promise.resolve({ data: [], error: null }),
@@ -68,6 +79,7 @@ export default async function OrganizationsPage() {
           organizations={organizationsResult.data}
           accessToken={session?.user?.accessToken || ""}
           canManageOrganizations={canCreateOrganization}
+          initialSearch={search}
           managerCandidates={managerCandidates}
         />
       </div>

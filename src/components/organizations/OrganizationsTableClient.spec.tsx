@@ -1,16 +1,23 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { OrganizationsTableClient } from "./OrganizationsTableClient";
 
+const mockRefresh = jest.fn();
+const mockReplace = jest.fn();
+
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: jest.fn() }),
+  usePathname: () => "/organizations",
+  useRouter: () => ({ refresh: mockRefresh, replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("OrganizationsTableClient", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_API_URL = "http://api.test";
     global.fetch = jest.fn();
+    mockRefresh.mockClear();
+    mockReplace.mockClear();
   });
 
   afterEach(() => {
@@ -41,6 +48,45 @@ describe("OrganizationsTableClient", () => {
 
     expect(screen.getByText("Engineering")).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+  });
+
+  it("filters organizations by search text", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OrganizationsTableClient
+        accessToken="token"
+        canManageOrganizations
+        organizations={[
+          {
+            id: "org-1",
+            name: "Engineering",
+            licensePlan: "academic",
+            _count: { departments: 1, userRoles: 1 },
+            userRoles: [
+              {
+                role: "ORGANIZATION_MANAGER",
+                user: { name: "Grace Hopper" },
+              },
+            ],
+          },
+          {
+            id: "org-2",
+            name: "Design",
+            licensePlan: "standard",
+            _count: { departments: 0, userRoles: 0 },
+            userRoles: [],
+          },
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("Search organizations..."), "grace");
+
+    await waitFor(() => {
+      expect(screen.getByText("Engineering")).toBeInTheDocument();
+      expect(screen.queryByText("Design")).not.toBeInTheDocument();
+    });
   });
 
   it("lets admins edit organization fields and add an organization manager", async () => {

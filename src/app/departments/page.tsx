@@ -10,13 +10,18 @@ import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 export default async function DepartmentsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ organization_id?: string; organizationId?: string }>;
+  searchParams?: Promise<{
+    organization_id?: string;
+    organizationId?: string;
+    search?: string;
+  }>;
 }) {
   const session = await getServerSession(authOptions);
   const resolvedSearchParams = await searchParams;
   const organizationId =
     resolvedSearchParams?.organization_id ||
     resolvedSearchParams?.organizationId;
+  const search = resolvedSearchParams?.search?.trim() || "";
   let departmentsResult: ServerApiResult<any[]> = { data: [], error: null };
   let organizationsResult: ServerApiResult<any[]> = { data: [], error: null };
   let usersResult: ServerApiResult<any[]> = { data: [], error: null };
@@ -33,9 +38,14 @@ export default async function DepartmentsPage({
     hasDepartmentScope && !roles.includes("ADMIN") && !hasOrganizationScope;
 
   if (session?.user?.accessToken) {
-    const query = organizationId
-      ? `?organization_id=${encodeURIComponent(organizationId)}`
-      : "";
+    const params = new URLSearchParams();
+    if (organizationId) {
+      params.set("organization_id", organizationId);
+    }
+    if (search) {
+      params.set("search", search);
+    }
+    const query = params.toString() ? `?${params.toString()}` : "";
     const results = await Promise.all([
       fetchServerApi<any[]>(`/departments${query}`, session.user.accessToken, []),
       canCreateDepartment
@@ -104,6 +114,7 @@ export default async function DepartmentsPage({
         <DepartmentTable
           initialDepartments={departmentsResult.data}
           accessToken={session?.user?.accessToken || ""}
+          initialSearch={search}
           canManageDepartments={canManageDepartment}
           canDeleteDepartments={canCreateDepartment}
           canChangeDepartmentOrganization={canCreateDepartment}
