@@ -62,6 +62,10 @@ type UserCandidate = {
     } | null;
   }>;
 };
+type OrganizationCandidate = {
+  id: string;
+  name: string;
+};
 
 const ROLE_RANK: Record<string, number> = {
   ADMIN: 5,
@@ -74,7 +78,7 @@ const ROLE_RANK: Record<string, number> = {
 export default function NewDepartmentPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const roles = session?.user?.roles || [];
+  const roles = useMemo(() => session?.user?.roles || [], [session?.user?.roles]);
   const hasOrganizationScope = (
     session?.user?.scopes?.organizations || []
   ).some((scope) => scope.role === "ORGANIZATION_MANAGER");
@@ -144,15 +148,12 @@ export default function NewDepartmentPage() {
       }
 
       try {
-        const [orgsRes, usersRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations`, {
+        const orgsRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/organizations`,
+          {
             headers: { Authorization: `Bearer ${session.user.accessToken}` },
-          }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
-            headers: { Authorization: `Bearer ${session.user.accessToken}` },
-          }),
-        ]);
-
+          },
+        );
         const orgsJson = await orgsRes.json().catch(() => null);
 
         if (!orgsRes.ok) {
@@ -171,33 +172,48 @@ export default function NewDepartmentPage() {
         );
         const creatableOrganizations = roles.includes("ADMIN")
           ? organizationData
-          : organizationData.filter((org: any) =>
+          : organizationData.filter((org: OrganizationCandidate) =>
               organizationScopeIds.has(org.id),
             );
 
         setOrganizations(
-          creatableOrganizations.map((org: any) => ({
+          creatableOrganizations.map((org: OrganizationCandidate) => ({
             value: org.id,
             label: org.name,
           })),
         );
 
-        const usersJson = await usersRes.json().catch(() => null);
-        if (!usersRes.ok) {
+        try {
+          const usersRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/users`,
+            {
+              headers: { Authorization: `Bearer ${session.user.accessToken}` },
+            },
+          );
+          const usersJson = await usersRes.json().catch(() => null);
+
+          if (!usersRes.ok) {
+            setUserCandidates([]);
+            setUsersError(
+              usersJson?.error?.message ||
+                usersJson?.message ||
+                "Could not load manager candidates.",
+            );
+            return;
+          }
+
+          const userData = Array.isArray(usersJson)
+            ? usersJson
+            : usersJson?.data || [];
+          setUserCandidates(userData);
+          setUsersError(null);
+        } catch (err) {
+          console.error("Failed to load department manager candidates:", err);
           setUserCandidates([]);
           setUsersError(
-            usersJson?.error?.message ||
-              usersJson?.message ||
-              "Could not load manager candidates.",
+            "Could not load manager candidates. You can still create the department without assigning a manager.",
           );
-          return;
         }
-
-        const userData = Array.isArray(usersJson)
-          ? usersJson
-          : usersJson?.data || [];
-        setUserCandidates(userData);
-        setUsersError(null);
       } catch (err) {
         console.error("Failed to fetch data:", err);
         setError("Could not load form data. Please refresh and try again.");
@@ -207,7 +223,7 @@ export default function NewDepartmentPage() {
     }
 
     fetchData();
-  }, [canCreateDepartment, session, status]);
+  }, [canCreateDepartment, roles, session, status]);
 
   const onSubmit = async (data: DepartmentFormValues) => {
     if (!session?.user?.accessToken) return;
@@ -240,8 +256,14 @@ export default function NewDepartmentPage() {
 
       router.push("/departments");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(
+        err instanceof TypeError && err.message === "Failed to fetch"
+          ? "Could not reach the backend API. Check that the backend is running and allowed by CORS."
+          : err instanceof Error
+            ? err.message
+            : "Failed to create department",
+      );
     }
   };
 
