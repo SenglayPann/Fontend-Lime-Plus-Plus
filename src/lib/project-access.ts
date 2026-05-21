@@ -66,12 +66,16 @@ export function canManageProject(
   if (canManageProjectScope(user, project)) return true;
 
   const managesByMembership = (project.members || []).some(
-    (member) => member.userId === user?.id && member.role === "PROJECT_MANAGER",
+    (member) =>
+      member.userId === user?.id &&
+      (member.role === "PROJECT_MANAGER" || member.role === "PROJECT_LEAD"),
   );
   if (managesByMembership) return true;
 
   return (user?.scopes?.projects || []).some(
     (projectScope) =>
-      projectScope.id === project.id && projectScope.role === "PROJECT_MANAGER",
+      projectScope.id === project.id &&
+      (projectScope.role === "PROJECT_MANAGER" ||
+        projectScope.role === "PROJECT_LEAD"),
   );
 }

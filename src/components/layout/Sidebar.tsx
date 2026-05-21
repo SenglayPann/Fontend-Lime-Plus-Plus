@@ -40,6 +40,12 @@ const navigation = [
     visibility: "departments",
   },
   {
+    name: "Project Managers",
+    href: "/project-managers",
+    icon: Users,
+    visibility: "project-managers-admin",
+  },
+  {
     name: "Projects",
     href: "/projects",
     icon: FolderKanban,
@@ -68,15 +74,20 @@ export function Sidebar() {
   const hasDepartmentScope = (scopes?.departments || []).some(
     (scope) => scope.role === "DEPARTMENT_MANAGER",
   );
+  const hasDepartmentProjectManagerScope = (scopes?.departments || []).some(
+    (scope) => scope.role === "PROJECT_MANAGER",
+  );
   const hasProjectManagerScope = (scopes?.projects || []).some(
     (scope) => scope.role === "PROJECT_MANAGER",
   );
-  const hasProjectScope = (scopes?.projects || []).length > 0;
+  const hasProjectScope =
+    (scopes?.projects || []).length > 0 || hasDepartmentProjectManagerScope;
   const hasManagementScope =
     isAdmin ||
     hasOrganizationScope ||
     hasDepartmentScope ||
-    hasProjectManagerScope;
+    hasProjectManagerScope ||
+    hasDepartmentProjectManagerScope;
   const canAssignRoles = isAdmin || hasOrganizationScope;
   const isDepartmentOnlyManager =
     hasDepartmentScope && !isAdmin && !hasOrganizationScope;
@@ -96,6 +107,9 @@ export function Sidebar() {
       );
     }
     if (item.visibility === "users") return hasManagementScope;
+    if (item.visibility === "project-managers-admin") {
+      return isAdmin || hasOrganizationScope || hasDepartmentScope;
+    }
     return false;
   });
 

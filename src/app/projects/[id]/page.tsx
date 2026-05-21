@@ -30,6 +30,7 @@ import { ContributionPieChart } from "@/components/charts/ContributionPieChart";
 import { TeamPerformanceBar } from "@/components/charts/TeamPerformanceBar";
 import { ReportDownloadButton } from "@/components/reports/ReportDownloadButton";
 import { ProjectActions } from "@/components/projects/ProjectActions";
+import { LinkGitHubBanner } from "@/components/projects/LinkGitHubBanner";
 
 type ApiResult<T> = { data?: T; error?: string };
 
@@ -310,6 +311,19 @@ export default async function ProjectDetailPage({
             )}
           </div>
         </div>
+
+        {!project.repository && (
+          canManageCurrentProject ? (
+            <LinkGitHubBanner projectId={id} accessToken={token} />
+          ) : (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 text-sm text-amber-800 flex items-start gap-2.5">
+              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+              <div>
+                <span className="font-bold">Project Integration Required:</span> This project is not linked to any GitHub repository yet. Please ask your Project Manager or Lead to configure the integration.
+              </div>
+            </div>
+          )
+        )}
 
         {(tasksResult.error || prsResult.error) && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

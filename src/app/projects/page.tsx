@@ -26,7 +26,10 @@ export default async function ProjectsPage({
     (scope) => scope.role === "DEPARTMENT_MANAGER",
   );
   const canCreateProject =
-    roles.includes("ADMIN") || hasOrganizationScope || hasDepartmentScope;
+    roles.includes("ADMIN") ||
+    roles.includes("PROJECT_MANAGER") ||
+    hasOrganizationScope ||
+    hasDepartmentScope;
   let projectsResult: ServerApiResult<any[]> = { data: [], error: null };
 
   if (session?.user?.accessToken) {

@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type ProjectRole = "PROJECT_MANAGER" | "PROJECT_MEMBER";
+type ProjectRole = "PROJECT_MANAGER" | "PROJECT_LEAD" | "PROJECT_MEMBER";
 
 type ProjectMember = {
   id: string;
@@ -351,6 +351,9 @@ export function ProjectMembersClient({
                             <option value="PROJECT_MEMBER">
                               Project Member
                             </option>
+                            <option value="PROJECT_LEAD">
+                              Project Lead
+                            </option>
                             {canSelectManagerRole && (
                               <option value="PROJECT_MANAGER">
                                 Project Manager
@@ -363,7 +366,9 @@ export function ProjectMembersClient({
                               "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium",
                               member.role === "PROJECT_MANAGER"
                                 ? "bg-blue-50 text-blue-700"
-                                : "bg-muted text-muted-foreground",
+                                : member.role === "PROJECT_LEAD"
+                                  ? "bg-purple-50 text-purple-700"
+                                  : "bg-muted text-muted-foreground",
                             )}
                           >
                             {roleLabel(member.role)}
@@ -444,6 +449,7 @@ export function ProjectMembersClient({
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="PROJECT_MEMBER">Project Member</option>
+                <option value="PROJECT_LEAD">Project Lead</option>
                 {canSelectManagerRole && (
                   <option value="PROJECT_MANAGER">Project Manager</option>
                 )}

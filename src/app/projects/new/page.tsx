@@ -39,11 +39,15 @@ export default function NewProjectPage() {
     (scope) => scope.role === "DEPARTMENT_MANAGER",
   );
   const canCreateProject =
-    roles.includes("ADMIN") || hasOrganizationScope || hasDepartmentScope;
+    roles.includes("ADMIN") ||
+    roles.includes("PROJECT_MANAGER") ||
+    hasOrganizationScope ||
+    hasDepartmentScope;
   const [departments, setDepartments] = useState<Option[]>([]);
   const [users, setUsers] = useState<Option[]>([]);
   const [departmentId, setDepartmentId] = useState("");
   const [projectManagerId, setProjectManagerId] = useState("");
+  const [projectLeadId, setProjectLeadId] = useState("");
   const [name, setName] = useState("");
   const [repository, setRepository] = useState("");
   const [githubProjectId, setGithubProjectId] = useState("");
@@ -92,7 +96,11 @@ export default function NewProjectPage() {
         );
         const departmentScopeIds = new Set(
           (session.user.scopes?.departments || [])
-            .filter((scope) => scope.role === "DEPARTMENT_MANAGER")
+            .filter(
+              (scope) =>
+                scope.role === "DEPARTMENT_MANAGER" ||
+                scope.role === "PROJECT_MANAGER",
+            )
             .map((scope) => scope.id),
         );
         const creatableDepartments = roles.includes("ADMIN")
@@ -151,9 +159,18 @@ export default function NewProjectPage() {
 
         setUsers(managerOptions);
         setProjectManagerId((current) =>
-          managerOptions.some((option) => option.value === current)
-            ? current
-            : "",
+          current
+            ? managerOptions.some((option) => option.value === current)
+              ? current
+              : session.user.id || ""
+            : session.user.id || ""
+        );
+        setProjectLeadId((current) =>
+          current
+            ? managerOptions.some((option) => option.value === current)
+              ? current
+              : ""
+            : ""
         );
       } catch (err: any) {
         setError(err.message || "Failed to load project form data");
@@ -178,6 +195,7 @@ export default function NewProjectPage() {
         name,
         repository,
         github_project_id: githubProjectId,
+        project_lead_id: projectLeadId,
       };
 
       if (projectManagerId) {
@@ -290,17 +308,30 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Project Manager</Label>
+                <Label>Project Manager / Supervisor (Teacher)</Label>
                 <Combobox
                   options={users}
                   value={projectManagerId}
                   onChange={setProjectManagerId}
-                  placeholder="Select a project manager..."
+                  placeholder="Select a supervising project manager..."
                   emptyText="No users found."
                 />
                 <p className="text-xs text-muted-foreground">
-                  This user becomes the project leader and can sync Kanban,
-                  manage tasks, and maintain the project roster.
+                  The teacher or supervisor supervising this project shell. Defaults to the creator if left empty.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Project Lead (Student)</Label>
+                <Combobox
+                  options={users}
+                  value={projectLeadId}
+                  onChange={setProjectLeadId}
+                  placeholder="Select a student project lead..."
+                  emptyText="No users found."
+                />
+                <p className="text-xs text-muted-foreground">
+                  Strictly mandatory. The student leader for this project. They must have linked their GitHub account if a repository is pre-attached.
                 </p>
               </div>
 
@@ -317,25 +348,25 @@ export default function NewProjectPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="repository" className="flex items-center gap-2">
-                  <Github className="h-4 w-4 text-primary" /> Repository
+                  <Github className="h-4 w-4 text-primary" /> Repository <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
                 </Label>
                 <Input
                   id="repository"
                   value={repository}
                   onChange={(event) => setRepository(event.target.value)}
-                  placeholder="owner/repo"
-                  required
+                  placeholder="owner/repo (can attach later)"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="githubProjectId">GitHub Project V2 ID</Label>
+                <Label htmlFor="githubProjectId">
+                  GitHub Project V2 ID <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                </Label>
                 <Input
                   id="githubProjectId"
                   value={githubProjectId}
                   onChange={(event) => setGithubProjectId(event.target.value)}
-                  placeholder="PVT_kwHO..."
-                  required
+                  placeholder="PVT_kwHO... (can attach later)"
                 />
               </div>
 
@@ -387,7 +418,7 @@ export default function NewProjectPage() {
                 <Button
                   type="submit"
                   className="gap-2"
-                  disabled={isSubmitting || !departmentId || !projectManagerId}
+                  disabled={isSubmitting || !departmentId || !projectManagerId || !projectLeadId}
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
