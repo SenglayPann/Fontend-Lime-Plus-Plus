@@ -70,6 +70,8 @@ interface OrganizationsTableClientProps {
   canManageOrganizations: boolean;
   initialSearch?: string;
   managerCandidates?: ManagerCandidate[];
+  actorRoles?: string[];
+  actorUserId?: string;
 }
 
 export function OrganizationsTableClient({
@@ -78,6 +80,8 @@ export function OrganizationsTableClient({
   canManageOrganizations,
   initialSearch = "",
   managerCandidates = [],
+  actorRoles = [],
+  actorUserId,
 }: OrganizationsTableClientProps) {
   const router = useRouter();
   const [items, setItems] = useState(organizations);
@@ -131,6 +135,10 @@ export function OrganizationsTableClient({
 
     try {
       const currentManagerIds = new Set(currentOrganizationManagerIds(editing));
+      const hasManagerChanged =
+        !currentManagerIds.has(editManagerId) &&
+        !(editManagerId === "" && currentManagerIds.size === 0);
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/organizations/${editing.id}`,
         {
@@ -142,7 +150,7 @@ export function OrganizationsTableClient({
           body: JSON.stringify({
             name: editName,
             license_plan: editLicensePlan,
-            manager_user_id: editManagerId,
+            ...(hasManagerChanged ? { manager_user_id: editManagerId } : {}),
           }),
         },
       );
@@ -312,16 +320,23 @@ export function OrganizationsTableClient({
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          asChild
-                        >
-                          <Link href={`/organizations/${organization.id}`}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        </Button>
+                        {(canManageOrganizations ||
+                          organization.userRoles?.some(
+                            (role) =>
+                              role.role === "ORGANIZATION_MANAGER" &&
+                              role.user?.id === actorUserId,
+                          )) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            asChild
+                          >
+                            <Link href={`/organizations/${organization.id}`}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        )}
                         {canManageOrganizations && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

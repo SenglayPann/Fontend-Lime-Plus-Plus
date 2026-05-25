@@ -42,10 +42,7 @@ interface DepartmentTableProps {
   initialDepartments: any[];
   accessToken: string;
   initialSearch?: string;
-  canManageDepartments?: boolean;
-  canDeleteDepartments?: boolean;
-  canChangeDepartmentOrganization?: boolean;
-  canAssignDepartmentManager?: boolean;
+  userScopes?: any;
   organizations?: Array<{ id: string; name: string }>;
   managerCandidates?: DepartmentManagerCandidate[];
   actorRoles?: string[];
@@ -89,10 +86,7 @@ export function DepartmentTable({
   initialDepartments,
   accessToken,
   initialSearch = "",
-  canManageDepartments = false,
-  canDeleteDepartments = canManageDepartments,
-  canChangeDepartmentOrganization = false,
-  canAssignDepartmentManager = false,
+  userScopes,
   organizations = [],
   managerCandidates = [],
   actorRoles = [],
@@ -158,11 +152,16 @@ export function DepartmentTable({
         description: editDescription.trim(),
       };
 
-      if (canChangeDepartmentOrganization) {
-        body.organization_id = editOrganizationId;
-      }
+      const isOrgManager =
+        actorRoles.includes("ADMIN") ||
+        (userScopes?.organizations || []).some(
+          (scope: any) =>
+            scope.id === editOrganizationId &&
+            scope.role === "ORGANIZATION_MANAGER",
+        );
 
-      if (canAssignDepartmentManager) {
+      if (isOrgManager) {
+        body.organization_id = editOrganizationId;
         body.manager_user_id = editManagerId;
       }
 
@@ -295,6 +294,17 @@ export function DepartmentTable({
                 const projectCount = dept._count?.projects || 0;
                 const status = projectCount > 0 ? "Active" : "Idle";
                 const managerNames = getDepartmentManagerNames(dept);
+                
+                const orgId = dept.organizationId || dept.organization?.id;
+                const isOrgManager = actorRoles.includes("ADMIN") || (userScopes?.organizations || []).some(
+                  (scope: any) => scope.id === orgId && scope.role === "ORGANIZATION_MANAGER"
+                );
+                const isDeptManager = (userScopes?.departments || []).some(
+                  (scope: any) => scope.id === dept.id && scope.role === "DEPARTMENT_MANAGER"
+                );
+                
+                const rowCanManage = actorRoles.includes("ADMIN") || isOrgManager || isDeptManager;
+                const rowCanDelete = actorRoles.includes("ADMIN") || isOrgManager;
 
                 return (
                   <tr
@@ -346,18 +356,20 @@ export function DepartmentTable({
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          asChild
-                        >
-                          <Link href={`/departments/${dept.id}`}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        </Button>
+                        {rowCanManage && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            asChild
+                          >
+                            <Link href={`/departments/${dept.id}`}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        )}
 
-                        {(canManageDepartments || canDeleteDepartments) && (
+                        {(rowCanManage || rowCanDelete) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -377,7 +389,7 @@ export function DepartmentTable({
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {canManageDepartments && (
+                              {rowCanManage && (
                                 <DropdownMenuItem
                                   className="gap-2 cursor-pointer"
                                   onClick={() => openEdit(dept)}
@@ -385,7 +397,7 @@ export function DepartmentTable({
                                   <Edit2 className="h-3.5 w-3.5" /> Edit
                                 </DropdownMenuItem>
                               )}
-                              {canDeleteDepartments && (
+                              {rowCanDelete && (
                                 <DropdownMenuItem
                                   className="gap-2 text-destructive focus:text-destructive cursor-pointer"
                                   onClick={() => {
@@ -431,7 +443,11 @@ export function DepartmentTable({
                 maxLength={120}
               />
             </div>
-            {canChangeDepartmentOrganization && (
+            {(actorRoles.includes("ADMIN") || (userScopes?.organizations || []).some(
+              (scope: any) =>
+                scope.id === (editTarget?.organizationId || editTarget?.organization?.id) &&
+                scope.role === "ORGANIZATION_MANAGER"
+            )) && (
               <div className="space-y-2">
                 <label
                   className="text-sm font-medium"
@@ -460,7 +476,11 @@ export function DepartmentTable({
                 </select>
               </div>
             )}
-            {(canAssignDepartmentManager ||
+            {((actorRoles.includes("ADMIN") || (userScopes?.organizations || []).some(
+              (scope: any) =>
+                scope.id === (editTarget?.organizationId || editTarget?.organization?.id) &&
+                scope.role === "ORGANIZATION_MANAGER"
+            )) ||
               currentDepartmentManagers(editTarget).length > 0) && (
               <div className="space-y-2">
                 <label
@@ -474,7 +494,11 @@ export function DepartmentTable({
                   value={editManagerId}
                   onChange={(event) => setEditManagerId(event.target.value)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
-                  disabled={!canAssignDepartmentManager}
+                  disabled={!(actorRoles.includes("ADMIN") || (userScopes?.organizations || []).some(
+                    (scope: any) =>
+                      scope.id === (editTarget?.organizationId || editTarget?.organization?.id) &&
+                      scope.role === "ORGANIZATION_MANAGER"
+                  ))}
                 >
                   <option value="">Not assigned</option>
                   {departmentManagerOptions(
@@ -483,7 +507,11 @@ export function DepartmentTable({
                     editOrganizationId,
                     actorRoles,
                     actorUserId,
-                    canAssignDepartmentManager,
+                    (actorRoles.includes("ADMIN") || (userScopes?.organizations || []).some(
+                      (scope: any) =>
+                        scope.id === (editTarget?.organizationId || editTarget?.organization?.id) &&
+                        scope.role === "ORGANIZATION_MANAGER"
+                    )),
                   ).map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {userLabel(candidate)}
@@ -522,7 +550,11 @@ export function DepartmentTable({
               disabled={
                 !editName.trim() ||
                 pendingId !== null ||
-                (canChangeDepartmentOrganization && !editOrganizationId)
+                ((actorRoles.includes("ADMIN") || (userScopes?.organizations || []).some(
+                  (scope: any) =>
+                    scope.id === (editTarget?.organizationId || editTarget?.organization?.id) &&
+                    scope.role === "ORGANIZATION_MANAGER"
+                )) && !editOrganizationId)
               }
               className="gap-2"
             >

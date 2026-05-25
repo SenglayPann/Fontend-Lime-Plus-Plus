@@ -67,6 +67,10 @@ interface ProjectManagersClientProps {
   departments: DepartmentWithOrg[];
   accessToken: string;
   actorRoles: string[];
+  actorScopes?: {
+    organizations?: Array<{ id: string; role: string }>;
+    departments?: Array<{ id: string; role: string }>;
+  };
 }
 
 export function ProjectManagersClient({
@@ -75,6 +79,7 @@ export function ProjectManagersClient({
   departments,
   accessToken,
   actorRoles,
+  actorScopes,
 }: ProjectManagersClientProps) {
   const router = useRouter();
   const { update: updateSession } = useSession();
@@ -89,6 +94,28 @@ export function ProjectManagersClient({
   const isOrgManager = actorRoles.includes("ORGANIZATION_MANAGER");
   const isDeptManager = actorRoles.includes("DEPARTMENT_MANAGER");
   const canManageManagers = isAdmin || isOrgManager || isDeptManager;
+
+  function canRemoveManagerRole(deptId?: string) {
+    if (!canManageManagers) return false;
+    if (isAdmin) return true;
+    if (!deptId) return false;
+
+    const isDeptMgrForDept = actorScopes?.departments?.some(
+      (scope) => scope.role === "DEPARTMENT_MANAGER" && scope.id === deptId,
+    );
+    if (isDeptMgrForDept) return true;
+
+    const dept = departments.find((d) => d.id === deptId);
+    const orgId = dept?.organization?.id;
+    if (orgId) {
+      const isOrgMgrForOrg = actorScopes?.organizations?.some(
+        (scope) => scope.role === "ORGANIZATION_MANAGER" && scope.id === orgId,
+      );
+      if (isOrgMgrForOrg) return true;
+    }
+
+    return false;
+  }
 
   const filteredManagers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -305,7 +332,7 @@ export function ProjectManagersClient({
                           >
                             <GraduationCap className="h-3 w-3" />
                             {role.department?.name || "Global Scope"}
-                            {canManageManagers && (
+                            {canRemoveManagerRole(role.department?.id) && (
                               <button
                                 onClick={() => handleRemoveRole(role.id)}
                                 disabled={pendingKey === `remove:${role.id}`}
@@ -329,17 +356,20 @@ export function ProjectManagersClient({
                     {canManageManagers && (
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
-                            onClick={() => {
-                              // Revoke all PM roles for this user
-                              mgr.roles.forEach((role) => handleRemoveRole(role.id));
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> Revoke All
-                          </Button>
+                          {mgr.roles.some((r) => canRemoveManagerRole(r.department?.id)) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
+                              onClick={() => {
+                                mgr.roles
+                                  .filter((r) => canRemoveManagerRole(r.department?.id))
+                                  .forEach((role) => handleRemoveRole(role.id));
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Revoke
+                            </Button>
+                          )}
                         </div>
                       </td>
                     )}

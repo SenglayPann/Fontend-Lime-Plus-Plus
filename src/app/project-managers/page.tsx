@@ -33,14 +33,20 @@ export default async function ProjectManagersPage() {
   const roles = session.user.roles || [];
   const departmentScopeIds = new Set(
     (session.user.scopes?.departments || [])
-      .filter((scope) => scope.role === "DEPARTMENT_MANAGER" || scope.role === "ORGANIZATION_MANAGER")
+      .filter((scope) => scope.role === "DEPARTMENT_MANAGER")
+      .map((scope) => scope.id),
+  );
+  const organizationScopeIds = new Set(
+    (session.user.scopes?.organizations || [])
+      .filter((scope) => scope.role === "ORGANIZATION_MANAGER")
       .map((scope) => scope.id),
   );
 
   const assignableDepartments = roles.includes("ADMIN")
     ? departmentsResult.data
     : departmentsResult.data.filter((department: any) =>
-        departmentScopeIds.has(department.id),
+        departmentScopeIds.has(department.id) ||
+        organizationScopeIds.has(department.organizationId || department.organization?.id),
       );
 
   return (
@@ -56,6 +62,7 @@ export default async function ProjectManagersPage() {
         departments={assignableDepartments}
         accessToken={token}
         actorRoles={roles}
+        actorScopes={session.user.scopes}
       />
     </DashboardLayout>
   );

@@ -200,6 +200,22 @@ export function UserAccountDropdown() {
 
   const currentUser = session?.user;
 
+  const ROLE_HIERARCHY = [
+    "ADMIN",
+    "ORGANIZATION_MANAGER",
+    "DEPARTMENT_MANAGER",
+    "PROJECT_MANAGER",
+    "PROJECT_LEAD",
+    "PROJECT_MEMBER",
+    "USER"
+  ];
+
+  const highestRole = currentUser?.roles
+    ? [...currentUser.roles].sort(
+        (a, b) => ROLE_HIERARCHY.indexOf(a) - ROLE_HIERARCHY.indexOf(b)
+      )[0]
+    : currentUser?.role || "MEMBER";
+
   if (status === "loading") {
     return (
       <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
@@ -215,7 +231,7 @@ export function UserAccountDropdown() {
               {currentUser?.name || "User"}
             </p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">
-              {currentUser?.role?.replace("_", " ") || "MEMBER"}
+              {highestRole.replace(/_/g, " ")}
             </p>
           </div>
           {currentUser?.image ? (

@@ -42,7 +42,7 @@ type VisibleUser = {
     organizationId?: string | null;
     departmentId?: string | null;
     organization?: ScopedName | null;
-    department?: ScopedName | null;
+    department?: (ScopedName & { organizationId?: string | null }) | null;
   }>;
   projectMembers?: Array<{
     id?: string | null;
@@ -217,10 +217,18 @@ export function UsersRolesClient({
     }
   }
 
-  function canRemoveRole(role: string) {
+  function canRemoveRole(role: NonNullable<VisibleUser["userRoles"]>[number]) {
     if (!canAssignRoles) return false;
     if (isAdmin) return true;
-    return role === "DEPARTMENT_MANAGER";
+    if (role.role === "DEPARTMENT_MANAGER") {
+      const orgId = role.department?.organizationId || role.organizationId;
+      return (
+        actorScopes?.organizations?.some(
+          (scope) => scope.role === "ORGANIZATION_MANAGER" && scope.id === orgId,
+        ) ?? false
+      );
+    }
+    return false;
   }
 
   const needsOrganization = selectedRole === "ORGANIZATION_MANAGER";
@@ -441,7 +449,7 @@ function RoleList({
   onRemoveRole,
 }: {
   roles: NonNullable<VisibleUser["userRoles"]>;
-  canRemoveRole: (role: string) => boolean;
+  canRemoveRole: (role: NonNullable<VisibleUser["userRoles"]>[number]) => boolean;
   pendingKey: string | null;
   onRemoveRole: (roleId: string) => void;
 }) {
@@ -462,7 +470,7 @@ function RoleList({
         >
           <Shield className="h-3 w-3" />
           {roleLabel(role.role)} - {roleScope(role)}
-          {canRemoveRole(role.role) && (
+          {canRemoveRole(role) && (
             <button
               type="button"
               className="ml-1 rounded-sm p-0.5 text-muted-foreground hover:bg-background hover:text-destructive disabled:opacity-50"

@@ -115,10 +115,7 @@ export default async function DepartmentsPage({
           initialDepartments={departmentsResult.data}
           accessToken={session?.user?.accessToken || ""}
           initialSearch={search}
-          canManageDepartments={canManageDepartment}
-          canDeleteDepartments={canCreateDepartment}
-          canChangeDepartmentOrganization={canCreateDepartment}
-          canAssignDepartmentManager={canCreateDepartment}
+          userScopes={session?.user?.scopes}
           organizations={editableOrganizations}
           managerCandidates={usersResult.data}
           actorRoles={roles}

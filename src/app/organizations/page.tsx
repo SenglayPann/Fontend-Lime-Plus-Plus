@@ -81,6 +81,8 @@ export default async function OrganizationsPage({
           canManageOrganizations={canCreateOrganization}
           initialSearch={search}
           managerCandidates={managerCandidates}
+          actorUserId={session?.user?.id}
+          actorRoles={roles}
         />
       </div>
     </DashboardLayout>
