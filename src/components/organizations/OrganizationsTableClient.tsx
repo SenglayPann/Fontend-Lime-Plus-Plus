@@ -12,6 +12,7 @@ import {
   Search,
   Trash2,
   Users,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -34,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useDebouncedSearchParam } from "@/lib/use-debounced-search-param";
 import { cn } from "@/lib/utils";
+import { AllowlistManager } from "./AllowlistManager";
 
 type Organization = {
   id: string;
@@ -91,6 +93,7 @@ export function OrganizationsTableClient({
   const [editLicensePlan, setEditLicensePlan] = useState("standard");
   const [editManagerId, setEditManagerId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
+  const [managingAllowlistFor, setManagingAllowlistFor] = useState<Organization | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -257,6 +260,15 @@ export function OrganizationsTableClient({
                 {filtered.map((organization) => {
                   const managerNames =
                     getOrganizationManagerNames(organization);
+                  const isManagerOfThisOrg = Boolean(
+                    organization.userRoles?.some(
+                      (role) =>
+                        role.role === "ORGANIZATION_MANAGER" &&
+                        role.user?.id === actorUserId,
+                    ),
+                  );
+                  const canManageAllowlist =
+                    canManageOrganizations || isManagerOfThisOrg;
 
                   return (
                     <tr
@@ -320,12 +332,7 @@ export function OrganizationsTableClient({
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        {(canManageOrganizations ||
-                          organization.userRoles?.some(
-                            (role) =>
-                              role.role === "ORGANIZATION_MANAGER" &&
-                              role.user?.id === actorUserId,
-                          )) && (
+                        {canManageAllowlist && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -337,7 +344,7 @@ export function OrganizationsTableClient({
                             </Link>
                           </Button>
                         )}
-                        {canManageOrganizations && (
+                        {canManageAllowlist && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -357,21 +364,31 @@ export function OrganizationsTableClient({
                             <DropdownMenuContent align="end" className="w-44">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
+                              {canManageOrganizations && (
+                                <DropdownMenuItem
+                                  className="gap-2 cursor-pointer"
+                                  onClick={() => openEdit(organization)}
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" /> Edit
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 className="gap-2 cursor-pointer"
-                                onClick={() => openEdit(organization)}
+                                onClick={() => setManagingAllowlistFor(organization)}
                               >
-                                <Edit2 className="h-3.5 w-3.5" /> Edit
+                                <UserPlus className="h-3.5 w-3.5" /> Manage Allowlist
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                                onClick={() => {
-                                  setDeleteTarget(organization);
-                                  setError(null);
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" /> Delete
-                              </DropdownMenuItem>
+                              {canManageOrganizations && (
+                                <DropdownMenuItem
+                                  className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    setDeleteTarget(organization);
+                                    setError(null);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -496,6 +513,28 @@ export function OrganizationsTableClient({
               Delete Organization
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!managingAllowlistFor}
+        onOpenChange={(open) => {
+          if (!open) setManagingAllowlistFor(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Allowlist: {managingAllowlistFor?.name}</DialogTitle>
+            <DialogDescription>
+              Manage emails, domains, or GitHub usernames that can automatically join this organization.
+            </DialogDescription>
+          </DialogHeader>
+          {managingAllowlistFor && (
+            <AllowlistManager
+              organizationId={managingAllowlistFor.id}
+              accessToken={accessToken}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>
