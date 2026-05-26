@@ -200,6 +200,9 @@ export function UserAccountDropdown() {
 
   const currentUser = session?.user;
 
+  // Ordered from highest to lowest. Mirrors backend ROLE_RANK in
+  // role-delegation.service.ts so the header label always matches the
+  // user's most-privileged role.
   const ROLE_HIERARCHY = [
     "ADMIN",
     "ORGANIZATION_MANAGER",
@@ -207,14 +210,20 @@ export function UserAccountDropdown() {
     "PROJECT_MANAGER",
     "PROJECT_LEAD",
     "PROJECT_MEMBER",
-    "USER"
+    "ORGANIZATION_MEMBER",
+    "USER",
   ];
 
-  const highestRole = currentUser?.roles
-    ? [...currentUser.roles].sort(
-        (a, b) => ROLE_HIERARCHY.indexOf(a) - ROLE_HIERARCHY.indexOf(b)
-      )[0]
-    : currentUser?.role || "MEMBER";
+  function roleRank(role: string) {
+    const index = ROLE_HIERARCHY.indexOf(role);
+    // Unknown roles sort to the bottom instead of the top (indexOf -1 quirk).
+    return index === -1 ? Number.POSITIVE_INFINITY : index;
+  }
+
+  const highestRole =
+    currentUser?.roles && currentUser.roles.length > 0
+      ? [...currentUser.roles].sort((a, b) => roleRank(a) - roleRank(b))[0]
+      : currentUser?.role || "MEMBER";
 
   if (status === "loading") {
     return (
