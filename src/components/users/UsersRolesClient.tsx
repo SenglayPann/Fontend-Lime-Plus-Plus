@@ -24,7 +24,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-type UserRoleName = "ADMIN" | "ORGANIZATION_MANAGER" | "DEPARTMENT_MANAGER";
+type UserRoleName =
+  | "ADMIN"
+  | "ORGANIZATION_MANAGER"
+  | "DEPARTMENT_MANAGER"
+  | "PROJECT_MANAGER";
 
 type ScopedName = {
   id: string;
@@ -110,8 +114,13 @@ export function UsersRolesClient({
     ? "Assign organization and department roles within your current scope."
     : "People visible within your current project or management scope.";
   const roleOptions: UserRoleName[] = isAdmin
-    ? ["ADMIN", "ORGANIZATION_MANAGER", "DEPARTMENT_MANAGER"]
-    : ["DEPARTMENT_MANAGER"];
+    ? [
+      "ADMIN",
+      "ORGANIZATION_MANAGER",
+      "DEPARTMENT_MANAGER",
+      "PROJECT_MANAGER",
+    ]
+    : ["DEPARTMENT_MANAGER", "PROJECT_MANAGER"];
 
   const filteredUsers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -149,7 +158,10 @@ export function UsersRolesClient({
     if (selectedRole === "ORGANIZATION_MANAGER") {
       body.organization_id = selectedOrganizationId;
     }
-    if (selectedRole === "DEPARTMENT_MANAGER") {
+    if (
+      selectedRole === "DEPARTMENT_MANAGER" ||
+      selectedRole === "PROJECT_MANAGER"
+    ) {
       body.department_id = selectedDepartmentId;
     }
 
@@ -220,7 +232,10 @@ export function UsersRolesClient({
   function canRemoveRole(role: NonNullable<VisibleUser["userRoles"]>[number]) {
     if (!canAssignRoles) return false;
     if (isAdmin) return true;
-    if (role.role === "DEPARTMENT_MANAGER") {
+    if (
+      role.role === "DEPARTMENT_MANAGER" ||
+      role.role === "PROJECT_MANAGER"
+    ) {
       const orgId = role.department?.organizationId || role.organizationId;
       return (
         actorScopes?.organizations?.some(
@@ -232,7 +247,8 @@ export function UsersRolesClient({
   }
 
   const needsOrganization = selectedRole === "ORGANIZATION_MANAGER";
-  const needsDepartment = selectedRole === "DEPARTMENT_MANAGER";
+  const needsDepartment =
+    selectedRole === "DEPARTMENT_MANAGER" || selectedRole === "PROJECT_MANAGER";
   const canSubmit =
     pendingKey === null &&
     !!targetUser &&
