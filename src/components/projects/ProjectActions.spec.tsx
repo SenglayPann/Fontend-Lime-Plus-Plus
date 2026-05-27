@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { ProjectActions } from "./ProjectActions";
 
@@ -15,7 +16,8 @@ describe("ProjectActions", () => {
     jest.resetAllMocks();
   });
 
-  it("disables score-changing actions for locked projects", () => {
+  it("disables score-changing actions for locked projects", async () => {
+    const user = userEvent.setup();
     render(
       <ProjectActions
         projectId="project-1"
@@ -25,10 +27,15 @@ describe("ProjectActions", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /sync locked/i })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: /project locked/i }),
     ).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /project actions/i }));
+    const reconcileItem = await screen.findByRole("menuitem", {
+      name: /sync locked/i,
+    });
+    expect(reconcileItem).toHaveAttribute("aria-disabled", "true");
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });

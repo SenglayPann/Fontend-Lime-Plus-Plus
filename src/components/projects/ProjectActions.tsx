@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, RefreshCw } from "lucide-react";
+import { Loader2, Lock, MoreHorizontal, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useProjectLiveUpdates } from "@/hooks/use-project-live-updates";
+import { LiveStatusBadge } from "./LiveStatusBadge";
 
 interface ProjectActionsProps {
   projectId: string;
@@ -27,6 +37,7 @@ export function ProjectActions({
   canLockProject = false,
 }: ProjectActionsProps) {
   const router = useRouter();
+  const liveStatus = useProjectLiveUpdates(projectId, accessToken);
   const [pendingAction, setPendingAction] = useState<"sync" | "lock" | null>(
     null,
   );
@@ -74,19 +85,7 @@ export function ProjectActions({
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          className="gap-2"
-          onClick={() => runAction("sync")}
-          disabled={pendingAction !== null || isLocked}
-        >
-          {pendingAction === "sync" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          {isLocked ? "Sync Locked" : "Sync Kanban"}
-        </Button>
+        <LiveStatusBadge status={liveStatus} />
         {canLockProject && (
           <Button
             variant="outline"
@@ -102,6 +101,36 @@ export function ProjectActions({
             {isLocked ? "Project Locked" : "Lock Project"}
           </Button>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              disabled={pendingAction === "sync"}
+              aria-label="Project actions"
+              title="Webhooks already keep this project up to date. Use the menu if something looks out of date."
+            >
+              {pendingAction === "sync" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MoreHorizontal className="h-4 w-4" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Project actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="gap-2 cursor-pointer"
+              onClick={() => runAction("sync")}
+              disabled={pendingAction !== null || isLocked}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {isLocked ? "Sync locked" : "Reconcile from GitHub"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {error && (
         <p className="max-w-md text-right text-xs font-medium text-destructive">

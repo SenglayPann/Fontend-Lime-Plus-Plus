@@ -11,12 +11,23 @@ import {
   Filter,
   GitPullRequest,
   Loader2,
+  MoreHorizontal,
   RefreshCw,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useProjectLiveUpdates } from "@/hooks/use-project-live-updates";
+import { LiveStatusBadge } from "./LiveStatusBadge";
 
 type Task = {
   id: string;
@@ -101,6 +112,7 @@ export function ProjectTasksClient({
   isLocked = false,
 }: ProjectTasksClientProps) {
   const router = useRouter();
+  const liveStatus = useProjectLiveUpdates(projectId, accessToken);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -212,29 +224,50 @@ export function ProjectTasksClient({
           >
             Back to Overview
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            {isProjectWide ? "Project Tasks" : "My Tasks"}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              {isProjectWide ? "Project Tasks" : "My Tasks"}
+            </h1>
+            <LiveStatusBadge status={liveStatus} />
+          </div>
           <p className="text-muted-foreground">
             {isProjectWide
-              ? "Task-to-PR linkage and completion status."
+              ? "Task-to-PR linkage and completion status. Updates arrive automatically from GitHub."
               : "Assigned tasks and linked pull request evidence."}
           </p>
         </div>
         {canSync && (
           <div className="flex flex-col items-end gap-2">
-            <Button
-              className="gap-2"
-              onClick={syncTasks}
-              disabled={isSyncing || isLocked}
-            >
-              {isSyncing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              {isLocked ? "Sync Locked" : "Sync Kanban"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  disabled={isSyncing}
+                  aria-label="Project actions"
+                  title="Webhooks already keep this board up to date. Use the menu if something looks out of date."
+                >
+                  {isSyncing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MoreHorizontal className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Project actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="gap-2 cursor-pointer"
+                  onClick={syncTasks}
+                  disabled={isSyncing || isLocked}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {isLocked ? "Sync locked" : "Reconcile from GitHub"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {error && (
               <p className="max-w-md text-right text-xs font-medium text-destructive">
                 {error}

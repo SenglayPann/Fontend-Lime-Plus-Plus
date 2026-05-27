@@ -17,7 +17,8 @@ describe("ProjectTasksClient", () => {
     jest.resetAllMocks();
   });
 
-  it("keeps Kanban sync disabled after project lock", () => {
+  it("keeps the Reconcile menu item disabled after project lock", async () => {
+    const user = userEvent.setup();
     render(
       <ProjectTasksClient
         projectId="project-1"
@@ -30,7 +31,11 @@ describe("ProjectTasksClient", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /sync locked/i })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /project actions/i }));
+    const reconcileItem = await screen.findByRole("menuitem", {
+      name: /sync locked/i,
+    });
+    expect(reconcileItem).toHaveAttribute("aria-disabled", "true");
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
