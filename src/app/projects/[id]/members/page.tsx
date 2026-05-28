@@ -67,6 +67,11 @@ export default async function ProjectMembersPage({
     members,
   });
 
+  const projectOrganizationId =
+    project.department?.organizationId ||
+    project.department?.organization?.id ||
+    null;
+
   return (
     <DashboardLayout>
       <ProjectMembersClient
@@ -78,6 +83,7 @@ export default async function ProjectMembersPage({
         visibleUsersError={canManageMembers ? usersResult.error : undefined}
         canManageMembers={canManageMembers}
         canAssignProjectManager={canAssignProjectManager}
+        projectOrganizationId={projectOrganizationId}
       />
     </DashboardLayout>
   );

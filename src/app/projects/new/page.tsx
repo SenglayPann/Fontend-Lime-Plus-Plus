@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -17,16 +17,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import {
+  getUserEffectiveRoles,
+  highestRoleRank,
+  userBelongsToOrganization,
+} from "@/lib/user-affiliation";
 
 type Option = { value: string; label: string };
-
-const ROLE_RANK: Record<string, number> = {
-  ADMIN: 5,
-  ORGANIZATION_MANAGER: 4,
-  DEPARTMENT_MANAGER: 3,
-  PROJECT_MANAGER: 2,
-  PROJECT_MEMBER: 1,
-};
+type DepartmentOption = Option & { organizationId: string };
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -43,8 +41,8 @@ export default function NewProjectPage() {
     roles.includes("PROJECT_MANAGER") ||
     hasOrganizationScope ||
     hasDepartmentScope;
-  const [departments, setDepartments] = useState<Option[]>([]);
-  const [users, setUsers] = useState<Option[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+  const [userCandidates, setUserCandidates] = useState<any[]>([]);
   const [departmentId, setDepartmentId] = useState("");
   const [projectManagerId, setProjectManagerId] = useState("");
   const [projectLeadId, setProjectLeadId] = useState("");
@@ -57,6 +55,72 @@ export default function NewProjectPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedOrganizationId = useMemo(() => {
+    return (
+      departments.find((option) => option.value === departmentId)
+        ?.organizationId || ""
+    );
+  }, [departments, departmentId]);
+
+  // Scope the PM/PL pool to users affiliated with the chosen department's
+  // organization. Admin sees everyone; the actor can always pick themselves
+  // (so an org manager not yet affiliated with the org can still become PM).
+  // Non-admin actors can only pick users with strictly lower effective rank.
+  const memberOptions = useMemo<Option[]>(() => {
+    if (!selectedOrganizationId) {
+      // Until the user picks a department, surface only the actor (so they
+      // can default to themselves). Prevents leaking the full visible-user
+      // union before scope is chosen.
+      if (session?.user?.id) {
+        return [
+          {
+            value: session.user.id,
+            label: session.user.name || session.user.email || "You",
+          },
+        ];
+      }
+      return [];
+    }
+
+    const actorId = session?.user?.id;
+    const actorRank = highestRoleRank(roles);
+    const isAdmin = roles.includes("ADMIN");
+
+    const filtered = userCandidates.filter((user) => {
+      if (user.id === actorId) return true;
+      if (isAdmin) return true;
+      return (
+        userBelongsToOrganization(user, selectedOrganizationId) &&
+        highestRoleRank(getUserEffectiveRoles(user)) < actorRank
+      );
+    });
+
+    return filtered.map((user) => ({
+      value: user.id,
+      label:
+        user.name ||
+        user.githubUsername ||
+        user.email ||
+        user.githubUserId ||
+        user.id,
+    }));
+  }, [userCandidates, selectedOrganizationId, roles, session?.user]);
+
+  // Reset PM/PL when the available pool changes so we never submit a stale
+  // selection from a different organization.
+  useEffect(() => {
+    setProjectManagerId((current) => {
+      if (!current) return session?.user?.id || "";
+      return memberOptions.some((opt) => opt.value === current)
+        ? current
+        : session?.user?.id || "";
+    });
+    setProjectLeadId((current) => {
+      if (!current) return "";
+      return memberOptions.some((opt) => opt.value === current) ? current : "";
+    });
+  }, [memberOptions, session?.user?.id]);
 
   useEffect(() => {
     async function loadFormData() {
@@ -113,20 +177,21 @@ export default function NewProjectPage() {
                 ),
             );
         setDepartments(
-          creatableDepartments.map((department: any) => ({
-            value: department.id,
-            label: department.organization?.name
-              ? `${department.name} (${department.organization.name})`
-              : department.name,
-          })),
+          creatableDepartments
+            .map((department: any) => {
+              const orgId =
+                department.organizationId || department.organization?.id;
+              if (!orgId) return null;
+              return {
+                value: department.id,
+                label: department.organization?.name
+                  ? `${department.name} (${department.organization.name})`
+                  : department.name,
+                organizationId: orgId,
+              };
+            })
+            .filter(Boolean) as DepartmentOption[],
         );
-
-        const fallbackManager: Option | null = session.user.id
-          ? {
-              value: session.user.id,
-              label: session.user.name || session.user.email || "You",
-            }
-          : null;
 
         const userData = usersRes.ok
           ? usersJson?.success
@@ -135,43 +200,8 @@ export default function NewProjectPage() {
               ? usersJson
               : []
           : [];
-        const actorRank = highestRoleRank(roles);
-        const assignableUsers = roles.includes("ADMIN")
-          ? userData
-          : userData.filter((user: any) => {
-              if (user.id === session.user.id) return true;
-              return highestRoleRank(getUserEffectiveRoles(user)) < actorRank;
-            });
-        const userOptions: Option[] = assignableUsers.map((user: any) => ({
-          value: user.id,
-          label:
-            user.name ||
-            user.githubUsername ||
-            user.email ||
-            user.githubUserId ||
-            user.id,
-        }));
-        const managerOptions: Option[] = userOptions.length
-          ? userOptions
-          : fallbackManager
-            ? [fallbackManager]
-            : [];
 
-        setUsers(managerOptions);
-        setProjectManagerId((current) =>
-          current
-            ? managerOptions.some((option) => option.value === current)
-              ? current
-              : session.user.id || ""
-            : session.user.id || ""
-        );
-        setProjectLeadId((current) =>
-          current
-            ? managerOptions.some((option) => option.value === current)
-              ? current
-              : ""
-            : ""
-        );
+        setUserCandidates(userData);
       } catch (err: any) {
         setError(err.message || "Failed to load project form data");
       } finally {
@@ -310,28 +340,40 @@ export default function NewProjectPage() {
               <div className="space-y-2">
                 <Label>Project Manager / Supervisor (Teacher)</Label>
                 <Combobox
-                  options={users}
+                  options={memberOptions}
                   value={projectManagerId}
                   onChange={setProjectManagerId}
-                  placeholder="Select a supervising project manager..."
-                  emptyText="No users found."
+                  placeholder={
+                    departmentId
+                      ? "Select a supervising project manager..."
+                      : "Pick a department first..."
+                  }
+                  emptyText="No eligible users in this organization."
                 />
                 <p className="text-xs text-muted-foreground">
-                  The teacher or supervisor supervising this project shell. Defaults to the creator if left empty.
+                  The teacher or supervisor for this project. Defaults to the creator
+                  if left empty. Limited to users affiliated with the selected
+                  department's organization.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label>Project Lead (Student)</Label>
                 <Combobox
-                  options={users}
+                  options={memberOptions}
                   value={projectLeadId}
                   onChange={setProjectLeadId}
-                  placeholder="Select a student project lead..."
-                  emptyText="No users found."
+                  placeholder={
+                    departmentId
+                      ? "Select a student project lead..."
+                      : "Pick a department first..."
+                  }
+                  emptyText="No eligible users in this organization."
                 />
                 <p className="text-xs text-muted-foreground">
-                  Strictly mandatory. The student leader for this project. They must have linked their GitHub account if a repository is pre-attached.
+                  Strictly mandatory. The student leader for this project. They
+                  must have linked their GitHub account if a repository is
+                  pre-attached.
                 </p>
               </div>
 
@@ -436,17 +478,3 @@ export default function NewProjectPage() {
   );
 }
 
-function getUserEffectiveRoles(user: any): string[] {
-  const userRoles = Array.isArray(user.userRoles)
-    ? user.userRoles.map((role: any) => role.role)
-    : [];
-  const projectRoles = Array.isArray(user.projectMembers)
-    ? user.projectMembers.map((member: any) => member.role)
-    : [];
-
-  return [...userRoles, ...projectRoles].filter(Boolean);
-}
-
-function highestRoleRank(userRoles: string[]) {
-  return Math.max(0, ...userRoles.map((role) => ROLE_RANK[role] || 0));
-}

@@ -37,6 +37,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedSearchParam } from "@/lib/use-debounced-search-param";
 import { cn } from "@/lib/utils";
+import {
+  getUserEffectiveRoles,
+  highestRoleRank,
+  userBelongsToOrganization,
+} from "@/lib/user-affiliation";
 
 interface DepartmentTableProps {
   initialDepartments: any[];
@@ -72,14 +77,6 @@ type DepartmentManagerCandidate = {
       } | null;
     } | null;
   }>;
-};
-
-const ROLE_RANK: Record<string, number> = {
-  ADMIN: 5,
-  ORGANIZATION_MANAGER: 4,
-  DEPARTMENT_MANAGER: 3,
-  PROJECT_MANAGER: 2,
-  PROJECT_MEMBER: 1,
 };
 
 export function DepartmentTable({
@@ -664,44 +661,6 @@ function userLabel(user: DepartmentManagerCandidate) {
   return user.name || user.githubUsername || user.email || "Unknown User";
 }
 
-function getUserEffectiveRoles(user: DepartmentManagerCandidate): string[] {
-  const userRoles = Array.isArray(user.userRoles)
-    ? user.userRoles.map((role) => role.role)
-    : [];
-  const projectRoles = Array.isArray(user.projectMembers)
-    ? user.projectMembers.map((member) => member.role)
-    : [];
-
-  return [...userRoles, ...projectRoles].filter(Boolean) as string[];
-}
-
-function highestRoleRank(userRoles: string[]) {
-  return Math.max(0, ...userRoles.map((role) => ROLE_RANK[role] || 0));
-}
-
-function userBelongsToOrganization(
-  user: DepartmentManagerCandidate,
-  organizationId: string,
-) {
-  const hasScopedRole = (user.userRoles || []).some((role) => {
-    return (
-      role.organizationId === organizationId ||
-      role.organization?.id === organizationId ||
-      role.department?.organizationId === organizationId ||
-      role.department?.organization?.id === organizationId
-    );
-  });
-
-  if (hasScopedRole) return true;
-
-  return (user.projectMembers || []).some((member) => {
-    const department = member.project?.department;
-    return (
-      department?.organizationId === organizationId ||
-      department?.organization?.id === organizationId
-    );
-  });
-}
 
 function getDepartmentManagerNames(department: any): string[] {
   if (Array.isArray(department.managerNames)) {

@@ -32,6 +32,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  userBelongsToOrganization,
+  type AffiliationUser,
+} from "@/lib/user-affiliation";
 
 type ProjectRole = "PROJECT_MANAGER" | "PROJECT_LEAD" | "PROJECT_MEMBER";
 
@@ -49,7 +53,7 @@ type ProjectMember = {
   } | null;
 };
 
-type VisibleUser = {
+type VisibleUser = AffiliationUser & {
   id: string;
   name?: string | null;
   email?: string | null;
@@ -65,6 +69,12 @@ interface ProjectMembersClientProps {
   visibleUsersError?: string | null;
   canManageMembers: boolean;
   canAssignProjectManager: boolean;
+  /**
+   * Organization the project belongs to. Used to filter the Add Member
+   * candidate list so org-A managers can't pick org-B users (matches the
+   * backend org-affiliation check).
+   */
+  projectOrganizationId?: string | null;
 }
 
 function displayUser(user?: ProjectMember["user"] | VisibleUser | null) {
@@ -90,6 +100,7 @@ export function ProjectMembersClient({
   visibleUsersError,
   canManageMembers,
   canAssignProjectManager,
+  projectOrganizationId,
 }: ProjectMembersClientProps) {
   const router = useRouter();
   const { update: updateSession } = useSession();
@@ -107,8 +118,17 @@ export function ProjectMembersClient({
   );
 
   const candidateUsers = useMemo(
-    () => visibleUsers.filter((user) => !memberUserIds.has(user.id)),
-    [memberUserIds, visibleUsers],
+    () =>
+      visibleUsers.filter((user) => {
+        if (memberUserIds.has(user.id)) return false;
+        // If we know the project's org, only show affiliated users — matches
+        // the backend assertUserBelongsToProjectOrganization assertion.
+        if (projectOrganizationId) {
+          return userBelongsToOrganization(user, projectOrganizationId);
+        }
+        return true;
+      }),
+    [memberUserIds, visibleUsers, projectOrganizationId],
   );
 
   const filteredMembers = useMemo(() => {

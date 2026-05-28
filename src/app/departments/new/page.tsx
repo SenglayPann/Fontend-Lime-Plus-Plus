@@ -29,6 +29,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
+import {
+  getUserEffectiveRoles,
+  highestRoleRank,
+  userBelongsToOrganization,
+} from "@/lib/user-affiliation";
 
 const departmentSchema = z.object({
   name: z.string().min(2, "Department name must be at least 2 characters"),
@@ -65,14 +70,6 @@ type UserCandidate = {
 type OrganizationCandidate = {
   id: string;
   name: string;
-};
-
-const ROLE_RANK: Record<string, number> = {
-  ADMIN: 5,
-  ORGANIZATION_MANAGER: 4,
-  DEPARTMENT_MANAGER: 3,
-  PROJECT_MANAGER: 2,
-  PROJECT_MEMBER: 1,
 };
 
 export default function NewDepartmentPage() {
@@ -453,38 +450,3 @@ function userLabel(user: UserCandidate) {
   return user.name || user.githubUsername || user.email || "Unknown User";
 }
 
-function getUserEffectiveRoles(user: UserCandidate): string[] {
-  const userRoles = Array.isArray(user.userRoles)
-    ? user.userRoles.map((role) => role.role)
-    : [];
-  const projectRoles = Array.isArray(user.projectMembers)
-    ? user.projectMembers.map((member) => member.role)
-    : [];
-
-  return [...userRoles, ...projectRoles].filter(Boolean) as string[];
-}
-
-function highestRoleRank(userRoles: string[]) {
-  return Math.max(0, ...userRoles.map((role) => ROLE_RANK[role] || 0));
-}
-
-function userBelongsToOrganization(user: UserCandidate, organizationId: string) {
-  const hasScopedRole = (user.userRoles || []).some((role) => {
-    return (
-      role.organizationId === organizationId ||
-      role.organization?.id === organizationId ||
-      role.department?.organizationId === organizationId ||
-      role.department?.organization?.id === organizationId
-    );
-  });
-
-  if (hasScopedRole) return true;
-
-  return (user.projectMembers || []).some((member) => {
-    const department = member.project?.department;
-    return (
-      department?.organizationId === organizationId ||
-      department?.organization?.id === organizationId
-    );
-  });
-}
