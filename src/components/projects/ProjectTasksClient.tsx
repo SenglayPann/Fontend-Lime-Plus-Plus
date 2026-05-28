@@ -29,11 +29,15 @@ import { cn } from "@/lib/utils";
 import { useProjectLiveUpdates } from "@/hooks/use-project-live-updates";
 import { LiveStatusBadge } from "./LiveStatusBadge";
 
+type TaskDifficulty = "LOW" | "MEDIUM" | "HIGH";
+
 type Task = {
   id: string;
   externalTaskId?: string | null;
   title: string;
   status: string;
+  difficulty?: TaskDifficulty | null;
+  dueDate?: string | null;
   assigneeId?: string | null;
   assignee?: {
     id?: string | null;
@@ -177,6 +181,39 @@ export function ProjectTasksClient({
       setError(err.message || "Failed to sync tasks");
     } finally {
       setIsSyncing(false);
+    }
+  }
+
+  async function patchTaskFields(
+    taskId: string,
+    fields: { difficulty?: TaskDifficulty; due_date?: string | null },
+  ) {
+    if (isLocked) return;
+    setPendingAssignmentId(taskId);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tasks/${taskId}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(fields),
+        },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          json?.error?.message || json?.message || "Failed to update task",
+        );
+      }
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Failed to update task");
+    } finally {
+      setPendingAssignmentId(null);
     }
   }
 
@@ -325,6 +362,8 @@ export function ProjectTasksClient({
                   <th className="px-6 py-4">Task ID</th>
                   <th className="px-6 py-4">Title</th>
                   <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Difficulty</th>
+                  <th className="px-6 py-4">Due</th>
                   <th className="px-6 py-4">Assignee</th>
                   <th className="px-6 py-4">Linked PR</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -335,7 +374,7 @@ export function ProjectTasksClient({
                   <tr>
                     <td
                       className="px-6 py-8 text-center text-muted-foreground"
-                      colSpan={6}
+                      colSpan={8}
                     >
                       No tasks match the current search or filter.
                     </td>
@@ -384,6 +423,60 @@ export function ProjectTasksClient({
                           )}
                           {task.status.replace("_", " ")}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {canEditAssignee ? (
+                          <select
+                            value={task.difficulty || "MEDIUM"}
+                            onChange={(event) =>
+                              patchTaskFields(task.id, {
+                                difficulty: event.target
+                                  .value as TaskDifficulty,
+                              })
+                            }
+                            disabled={pendingAssignmentId !== null}
+                            className="h-9 rounded-md border border-input bg-background px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                            aria-label={`Set difficulty for ${task.title}`}
+                          >
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HIGH">High</option>
+                          </select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {task.difficulty || "MEDIUM"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {canEditAssignee ? (
+                          <input
+                            type="date"
+                            value={
+                              task.dueDate
+                                ? new Date(task.dueDate)
+                                    .toISOString()
+                                    .slice(0, 10)
+                                : ""
+                            }
+                            onChange={(event) =>
+                              patchTaskFields(task.id, {
+                                due_date: event.target.value || null,
+                              })
+                            }
+                            disabled={pendingAssignmentId !== null}
+                            className="h-9 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                            aria-label={`Set due date for ${task.title}`}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {task.dueDate
+                              ? new Date(task.dueDate)
+                                  .toISOString()
+                                  .slice(0, 10)
+                              : "—"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {canEditAssignee ? (
