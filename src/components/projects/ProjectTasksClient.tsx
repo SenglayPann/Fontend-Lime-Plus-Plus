@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Circle,
   ExternalLink,
+  FileText,
   Filter,
   GitPullRequest,
   Loader2,
@@ -36,6 +39,7 @@ type Task = {
   id: string;
   externalTaskId?: string | null;
   title: string;
+  description?: string | null;
   status: string;
   difficulty?: TaskDifficulty | null;
   dueDate?: string | null;
@@ -126,6 +130,11 @@ export function ProjectTasksClient({
   );
   const [error, setError] = useState<string | null>(null);
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+
+  function toggleExpanded(taskId: string) {
+    setExpandedTaskId((current) => (current === taskId ? null : taskId));
+  }
 
   const tasks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -374,6 +383,7 @@ export function ProjectTasksClient({
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/30 text-muted-foreground uppercase text-[10px] font-bold tracking-wider border-b border-border">
                 <tr>
+                  <th className="w-10 px-3 py-4" aria-label="Expand row" />
                   <th className="px-6 py-4">Task ID</th>
                   <th className="px-6 py-4">Title</th>
                   <th className="px-6 py-4">Status</th>
@@ -389,7 +399,7 @@ export function ProjectTasksClient({
                   <tr>
                     <td
                       className="px-6 py-8 text-center text-muted-foreground"
-                      colSpan={8}
+                      colSpan={9}
                     >
                       No tasks match the current search or filter.
                     </td>
@@ -406,12 +416,46 @@ export function ProjectTasksClient({
                     task.assignee?.githubUsername ||
                     task.assignee?.email ||
                     "Unassigned";
+                  const hasDescription = Boolean(task.description?.trim());
+                  const isExpanded = expandedTaskId === task.id;
 
                   return (
+                    <Fragment key={task.id}>
                     <tr
-                      key={task.id}
                       className="hover:bg-muted/20 transition-colors group"
                     >
+                      <td className="w-10 px-3 py-4 align-top">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(task.id)}
+                          disabled={!hasDescription}
+                          aria-label={
+                            hasDescription
+                              ? isExpanded
+                                ? `Hide description for ${task.title}`
+                                : `Show description for ${task.title}`
+                              : "No description"
+                          }
+                          aria-expanded={isExpanded}
+                          title={
+                            hasDescription
+                              ? "Show issue description"
+                              : "No description"
+                          }
+                          className={cn(
+                            "inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+                            hasDescription
+                              ? "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              : "text-muted-foreground/30 cursor-not-allowed",
+                          )}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+                      </td>
                       <td className="px-6 py-4 font-mono font-medium text-primary">
                         {task.externalTaskId || task.id}
                       </td>
@@ -573,6 +617,20 @@ export function ProjectTasksClient({
                         )}
                       </td>
                     </tr>
+                    {isExpanded && hasDescription && (
+                      <tr className="bg-muted/20">
+                        <td className="w-10 px-3 py-4 align-top" />
+                        <td colSpan={8} className="px-6 py-4">
+                          <div className="flex items-start gap-2 text-sm text-foreground/90">
+                            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                            <p className="whitespace-pre-wrap break-words leading-relaxed">
+                              {task.description}
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
