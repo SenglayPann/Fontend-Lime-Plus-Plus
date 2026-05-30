@@ -317,7 +317,9 @@ export default function NewProjectPage() {
               <div>
                 <CardTitle>Project Details</CardTitle>
                 <CardDescription>
-                  These fields map to the backend project contract.
+                  Pick the department and the people responsible for this
+                  project. GitHub repository and project board fields are
+                  optional — you can attach them later.
                 </CardDescription>
               </div>
             </div>
@@ -331,7 +333,9 @@ export default function NewProjectPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label>Department</Label>
+                <Label>
+                  Department <span className="text-destructive">*</span>
+                </Label>
                 <Combobox
                   options={departments}
                   value={departmentId}
@@ -342,7 +346,10 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Project Manager / Supervisor (Teacher)</Label>
+                <Label>
+                  Project Manager / Supervisor (Teacher){" "}
+                  <span className="text-destructive">*</span>
+                </Label>
                 <Combobox
                   options={memberOptions}
                   value={projectManagerId}
@@ -362,7 +369,10 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Project Lead (Student)</Label>
+                <Label>
+                  Project Lead (Student){" "}
+                  <span className="text-destructive">*</span>
+                </Label>
                 <Combobox
                   options={memberOptions}
                   value={projectLeadId}
@@ -375,14 +385,15 @@ export default function NewProjectPage() {
                   emptyText="No eligible users in this organization."
                 />
                 <p className="text-xs text-muted-foreground">
-                  Strictly mandatory. The student leader for this project. They
-                  must have linked their GitHub account if a repository is
-                  pre-attached.
+                  The student leader for this project. They must have linked
+                  their GitHub account if a repository is pre-attached.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Project Name</Label>
+                <Label htmlFor="name">
+                  Project Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="name"
                   value={name}
@@ -405,8 +416,21 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="githubProjectId">
-                  GitHub Project V2 ID <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                <Label htmlFor="githubProjectId" className="flex items-center justify-between gap-2">
+                  <span>
+                    GitHub Project V2 ID{" "}
+                    <span className="text-xs text-muted-foreground font-normal">
+                      (Optional)
+                    </span>
+                  </span>
+                  <a
+                    href="https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects#about-project-urls-and-numbers"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-normal text-primary hover:underline"
+                  >
+                    Where do I find this?
+                  </a>
                 </Label>
                 <Input
                   id="githubProjectId"
@@ -414,6 +438,14 @@ export default function NewProjectPage() {
                   onChange={(event) => setGithubProjectId(event.target.value)}
                   placeholder="PVT_kwHO... (can attach later)"
                 />
+                <p className="text-xs text-muted-foreground">
+                  The Node ID of a Projects V2 board on GitHub. Open the
+                  board, copy the URL, and use the value after
+                  <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                    /projects/
+                  </code>
+                  — for example <code className="font-mono text-[10px]">PVT_kwHOA…</code>.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -431,26 +463,48 @@ export default function NewProjectPage() {
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="evalStart">Evaluation Start</Label>
-                  <Input
-                    id="evalStart"
-                    type="date"
-                    value={evalStart}
-                    onChange={(event) => setEvalStart(event.target.value)}
-                  />
+              <div className="space-y-2">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="evalStart">Evaluation Start</Label>
+                    <Input
+                      id="evalStart"
+                      type="date"
+                      value={evalStart}
+                      onChange={(event) => setEvalStart(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="evalEnd">Evaluation End</Label>
+                    <Input
+                      id="evalEnd"
+                      type="date"
+                      value={evalEnd}
+                      onChange={(event) => setEvalEnd(event.target.value)}
+                      min={evalStart || undefined}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="evalEnd">Evaluation End</Label>
-                  <Input
-                    id="evalEnd"
-                    type="date"
-                    value={evalEnd}
-                    onChange={(event) => setEvalEnd(event.target.value)}
-                  />
-                </div>
+                {evalStart && evalEnd && evalEnd < evalStart && (
+                  <p className="text-xs font-medium text-destructive">
+                    Evaluation End must be on or after Evaluation Start.
+                  </p>
+                )}
               </div>
+
+              {(() => {
+                const missing: string[] = [];
+                if (!departmentId) missing.push("Department");
+                if (!projectManagerId) missing.push("Project Manager");
+                if (!projectLeadId) missing.push("Project Lead");
+                if (!name) missing.push("Project Name");
+                if (missing.length === 0) return null;
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Still required: {missing.join(", ")}.
+                  </p>
+                );
+              })()}
 
               <div className="flex justify-end gap-3 border-t border-border/50 pt-6">
                 <Button
@@ -464,7 +518,16 @@ export default function NewProjectPage() {
                 <Button
                   type="submit"
                   className="gap-2"
-                  disabled={isSubmitting || !departmentId || !projectManagerId || !projectLeadId}
+                  disabled={
+                    isSubmitting ||
+                    !departmentId ||
+                    !projectManagerId ||
+                    !projectLeadId ||
+                    !name ||
+                    (Boolean(evalStart) &&
+                      Boolean(evalEnd) &&
+                      evalEnd < evalStart)
+                  }
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
