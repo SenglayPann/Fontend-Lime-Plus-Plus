@@ -11,6 +11,7 @@ import {
   LogOut,
   Trophy,
   Users,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,12 +55,20 @@ const navigation = [
   {
     name: "Users & Roles",
     href: "/users",
-    icon: Users,
+    icon: UserCog,
     visibility: "users",
   },
 ];
 
-export function Sidebar() {
+interface SidebarContentProps {
+  /**
+   * Called whenever a nav link or the sign-out button is activated. Lets the
+   * mobile drawer close itself in response to a navigation choice.
+   */
+  onNavigate?: () => void;
+}
+
+export function SidebarContent({ onNavigate }: SidebarContentProps = {}) {
   const pathname = usePathname();
   const { data: session } = useSession();
 
@@ -113,7 +122,21 @@ export function Sidebar() {
     return false;
   });
 
+  // Pick the single best (longest-prefix) match so we don't highlight both
+  // /dashboard and /dashboard/my-contributions at the same time.
+  const activeHref = (() => {
+    let best: string | null = null;
+    for (const item of filteredNavigation) {
+      if (pathname === item.href) return item.href;
+      if (pathname.startsWith(item.href + "/")) {
+        if (!best || item.href.length > best.length) best = item.href;
+      }
+    }
+    return best;
+  })();
+
   async function handleSignOut() {
+    onNavigate?.();
     const refreshToken = session?.user?.refreshToken;
 
     if (refreshToken) {
@@ -136,7 +159,11 @@ export function Sidebar() {
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">
       <div className="flex h-16 items-center px-6">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2"
+          onClick={onNavigate}
+        >
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-xl">L</span>
           </div>
@@ -148,12 +175,12 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-1 px-3 py-4">
         {filteredNavigation.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive = activeHref === item.href;
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -188,6 +215,14 @@ export function Sidebar() {
           Sign Out
         </button>
       </div>
+    </div>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <div className="hidden md:flex">
+      <SidebarContent />
     </div>
   );
 }
