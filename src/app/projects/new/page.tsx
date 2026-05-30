@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { ArrowLeft, FolderKanban, Github, Loader2, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FolderKanban,
+  Github,
+  Loader2,
+  Save,
+} from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +63,56 @@ export default function NewProjectPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<
+    "idle" | "ok" | "failed"
+  >("idle");
+
+  // Reset the connection status whenever any GitHub-related field changes —
+  // the prior "ok" badge would otherwise lie about the current inputs.
+  useEffect(() => {
+    setConnectionStatus("idle");
+  }, [repository, githubProjectId, githubToken]);
+
+  const canTestConnection = Boolean(repository && githubProjectId);
+
+  async function testConnection() {
+    if (!canTestConnection || !session?.user?.accessToken) return;
+    setIsTestingConnection(true);
+    setConnectionStatus("idle");
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/validate-github`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.user.accessToken}`,
+          },
+          body: JSON.stringify({
+            repository,
+            github_project_id: githubProjectId,
+            github_token: githubToken || undefined,
+          }),
+        },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          json?.error?.message ||
+            json?.message ||
+            "GitHub validation failed",
+        );
+      }
+      setConnectionStatus("ok");
+      toast.success("GitHub connection looks good");
+    } catch (err: any) {
+      setConnectionStatus("failed");
+      toast.error(err.message || "GitHub validation failed");
+    } finally {
+      setIsTestingConnection(false);
+    }
+  }
 
   const selectedOrganizationId = useMemo(() => {
     return (
@@ -461,6 +518,40 @@ export default function NewProjectPage() {
                   Used only for validation. Required unless the backend has
                   GITHUB_PERSONAL_ACCESS_TOKEN configured.
                 </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={testConnection}
+                  disabled={!canTestConnection || isTestingConnection}
+                >
+                  {isTestingConnection ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Github className="h-4 w-4" />
+                  )}
+                  Test GitHub connection
+                </Button>
+                {!canTestConnection && (
+                  <span className="text-xs text-muted-foreground">
+                    Fill in Repository and Project V2 ID to test.
+                  </span>
+                )}
+                {connectionStatus === "ok" && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Repository and Project V2 reachable
+                  </span>
+                )}
+                {connectionStatus === "failed" && (
+                  <span className="text-xs font-medium text-destructive">
+                    Validation failed — see the toast for details.
+                  </span>
+                )}
               </div>
 
               <div className="space-y-2">
