@@ -1,22 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ArrowRight,
-  BarChart3,
   CheckCircle2,
   ChevronRight,
-  GitBranch,
+  FileText,
+  GitPullRequest,
   Github,
-  LayoutDashboard,
-  LockKeyhole,
-  Network,
+  Layers,
+  Lock,
   ShieldCheck,
   Sparkles,
-  UsersRound,
-  Workflow,
+  Target,
+  Users,
+  Zap,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type RoleMode = {
   id: "admin" | "manager" | "student";
@@ -24,39 +25,35 @@ type RoleMode = {
   eyebrow: string;
   headline: string;
   description: string;
-  accent: string;
-  stats: Array<{ label: string; value: string }>;
-  checks: string[];
+  bullets: string[];
 };
 
 const roleModes: RoleMode[] = [
   {
     id: "admin",
-    label: "Admin",
+    label: "Admin & Org Manager",
     eyebrow: "Governance",
-    headline: "One control plane for every organization.",
+    headline: "One control plane across every department.",
     description:
-      "Create scopes, assign managers, audit sensitive events, and keep GitHub data normalized across departments.",
-    accent: "#A6E22E",
-    stats: [
-      { label: "Scopes", value: "28" },
-      { label: "Audit paths", value: "9" },
+      "Create organisations, assign managers, audit sensitive events, and keep GitHub data scoped without leaking between departments.",
+    bullets: [
+      "Global role visibility across all scopes",
+      "Append-only audit log of score-changing actions",
+      "Allowlist-based auto-enrolment by email or GitHub username",
     ],
-    checks: ["Global role visibility", "Atomic manager assignment", "Export guardrails"],
   },
   {
     id: "manager",
-    label: "Manager",
+    label: "Project Manager",
     eyebrow: "Execution",
     headline: "Manage projects without crossing scope lines.",
     description:
-      "Sync boards, assign tasks, review pull requests, and see only the organizations, departments, and projects you own.",
-    accent: "#16A3A3",
-    stats: [
-      { label: "Active boards", value: "14" },
-      { label: "Open PRs", value: "86" },
+      "Sync the GitHub Project board, assign tasks, freeze scoring at the deadline, and export a defensible per-student report.",
+    bullets: [
+      "Inline difficulty + due-date editing on every task",
+      "Lock the project to freeze scores at the evaluation window",
+      "On-demand PDF and CSV reports scoped per project",
     ],
-    checks: ["Scoped users", "Locked project controls", "Live contribution trends"],
   },
   {
     id: "student",
@@ -64,511 +61,669 @@ const roleModes: RoleMode[] = [
     eyebrow: "Contribution",
     headline: "A clear view of your own project impact.",
     description:
-      "Track assigned tasks, pull request outcomes, and contribution history without exposing project-wide private data.",
-    accent: "#F06449",
-    stats: [
-      { label: "Own tasks", value: "12" },
-      { label: "Merged PRs", value: "7" },
+      "Watch tasks, pull requests, and reviews accumulate into a per-project score that you can inspect — without exposing peers' data.",
+    bullets: [
+      "Personal dashboard for tasks, PRs, and reviews",
+      "Per-task linked pull-request evidence",
+      "Live updates the moment GitHub fires a webhook",
     ],
-    checks: ["Personal dashboard", "Private project counts", "Contribution timeline"],
+  },
+];
+
+const features = [
+  {
+    icon: Github,
+    title: "GitHub-native ingestion",
+    text: "OAuth login plus a GitHub App that listens to repository, Projects v2, pull request, and review events in near real time.",
+  },
+  {
+    icon: Target,
+    title: "Per-task attribution",
+    text: "Every contribution event ties a student to a specific GitHub Issue or PR — no commit-count or LOC games.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Scoped role model",
+    text: "Seven roles from Admin to Project Member, enforced by guards at every endpoint and partial unique indexes in the database.",
+  },
+  {
+    icon: FileText,
+    title: "Audit-ready reports",
+    text: "PDF and CSV exports per project or per student, with an append-only audit log of every score-changing action.",
+  },
+  {
+    icon: Lock,
+    title: "Locked evaluation window",
+    text: "Freeze scoring at the deadline so late merges can't retroactively invalidate a teacher's grading.",
+  },
+  {
+    icon: Zap,
+    title: "Live dashboards",
+    text: "Server-Sent Events stream contribution updates the moment a webhook lands — no manual refresh.",
   },
 ];
 
 const workflowSteps = [
   {
-    icon: Github,
+    n: "01",
     title: "Connect GitHub",
-    text: "Repository and Project V2 data land in one normalized workspace.",
+    text: "Install the Lime++ GitHub App on your organisation and link a Projects v2 board to each course project.",
   },
   {
-    icon: Workflow,
-    title: "Sync work",
-    text: "Tasks, pull requests, reviews, and webhook events stay aligned.",
+    n: "02",
+    title: "Students log in",
+    text: "GitHub OAuth handoff. Allowlist auto-enrolment matches them to the right department on first sign-in.",
   },
   {
-    icon: ShieldCheck,
-    title: "Apply scope",
-    text: "Every view is filtered through organization, department, and project access.",
+    n: "03",
+    title: "Work flows in",
+    text: "Tasks sync from the project board. PRs, reviews, and merges feed the scoring engine through queued workers.",
   },
   {
-    icon: BarChart3,
-    title: "Report outcomes",
-    text: "Managers get aggregate signals, while students get personal contribution clarity.",
+    n: "04",
+    title: "Grade with evidence",
+    text: "At the evaluation deadline, lock the project and export PDF/CSV reports backed by an append-only audit log.",
   },
-];
-
-const proofPoints = [
-  { value: "198", label: "backend tests" },
-  { value: "28", label: "frontend tests" },
-  { value: "5 MB", label: "webhook body limit" },
-  { value: "0", label: "known auth-page loops" },
 ];
 
 export function LandingPage() {
   const [activeRole, setActiveRole] = useState<RoleMode["id"]>("manager");
-  const [teamSize, setTeamSize] = useState(48);
-  const [sceneOffset, setSceneOffset] = useState({ x: 0, y: 0 });
-
   const selectedRole =
     roleModes.find((mode) => mode.id === activeRole) || roleModes[1];
 
-  const estimate = useMemo(() => {
-    const weeklyEvents = Math.round(teamSize * 7.4);
-    const reviewHours = Math.round(teamSize * 1.8);
-    const scopedReports = Math.max(3, Math.round(teamSize / 6));
-
-    return { weeklyEvents, reviewHours, scopedReports };
-  }, [teamSize]);
-
-  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-
-    setSceneOffset({ x, y });
-  }
-
   return (
-    <main className="min-h-screen bg-[#F8FAF4] text-[#121614]">
-      <section
-        className="relative min-h-[84vh] overflow-hidden bg-[#ECF5E8]"
-        onPointerMove={handlePointerMove}
-      >
-        <HeroScene role={selectedRole} offset={sceneOffset} />
-        <header className="relative z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Lime++ home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#121614] text-sm font-black text-[#A6E22E]">
-              L+
-            </span>
-            <span className="text-base font-semibold text-[#121614]">
-              Lime++
-            </span>
-          </Link>
-
-          <nav
-            className="hidden items-center gap-7 text-sm font-medium text-[#36413A] md:flex"
-            aria-label="Primary"
-          >
-            <a href="#workflow" className="hover:text-[#121614]">
-              Workflow
-            </a>
-            <a href="#roles" className="hover:text-[#121614]">
-              Roles
-            </a>
-            <a href="#impact" className="hover:text-[#121614]">
-              Impact
-            </a>
-          </nav>
-
-          <Link
-            href="/login"
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-[#121614] px-4 text-sm font-semibold text-white transition hover:bg-[#263029]"
-          >
-            <Github className="h-4 w-4" />
-            Sign in
-          </Link>
-        </header>
-
-        <div className="relative z-10 mx-auto flex min-h-[calc(84vh-80px)] max-w-7xl items-center px-5 pb-14 pt-10 sm:px-8 lg:pb-20">
-          <div className="max-w-3xl">
-            <div className="mb-7 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#39443D]">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/80 text-[#537500] shadow-sm">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              Contribution intelligence for scoped project teams
-            </div>
-
-            <h1 className="text-6xl font-black leading-none text-[#121614] sm:text-7xl lg:text-8xl">
-              Lime++
-            </h1>
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-[#334139] sm:text-xl">
-              Turn GitHub activity into role-aware dashboards, task ownership,
-              pull request signals, and audit-ready reports for academic and
-              software project programs.
-            </p>
-
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/login"
-                className="inline-flex h-12 items-center gap-2 rounded-md bg-[#121614] px-5 text-sm font-bold text-white transition hover:bg-[#263029]"
-              >
-                <Github className="h-4 w-4" />
-                Continue with GitHub
-              </Link>
-              <a
-                href="#roles"
-                className="inline-flex h-12 items-center gap-2 rounded-md border border-[#B8C7B5] bg-white/75 px-5 text-sm font-bold text-[#121614] transition hover:bg-white"
-              >
-                Explore roles
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-[#D9E4D4] bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-px bg-[#D9E4D4] px-5 sm:px-8 lg:grid-cols-4">
-          {proofPoints.map((point) => (
-            <div key={point.label} className="bg-white py-6">
-              <p className="text-3xl font-black text-[#121614]">{point.value}</p>
-              <p className="mt-1 text-sm font-medium text-[#5C685F]">
-                {point.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="workflow" className="bg-[#F8FAF4] px-5 py-20 sm:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <p className="text-sm font-bold uppercase text-[#537500]">
-              Operating model
-            </p>
-            <h2 className="mt-3 text-4xl font-black leading-tight text-[#121614] sm:text-5xl">
-              From repository events to decisions.
-            </h2>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-4">
-            {workflowSteps.map((step, index) => (
-              <div
-                key={step.title}
-                className="group rounded-lg border border-[#D9E4D4] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#9ABD38]"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#ECF5E8] text-[#537500]">
-                    <step.icon className="h-5 w-5" />
-                  </span>
-                  <span className="text-sm font-black text-[#C7D5C0]">
-                    0{index + 1}
-                  </span>
-                </div>
-                <h3 className="mt-5 text-lg font-black text-[#121614]">
-                  {step.title}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-[#5C685F]">
-                  {step.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="roles" className="bg-[#121614] px-5 py-20 text-white sm:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
-            <div>
-              <p className="text-sm font-bold uppercase text-[#A6E22E]">
-                Role-aware UX
-              </p>
-              <h2 className="mt-3 text-4xl font-black leading-tight sm:text-5xl">
-                One product, three clean views.
-              </h2>
-              <p className="mt-5 text-base leading-7 text-[#C8D2C6]">
-                Lime++ keeps role checks centralized so each actor lands in a
-                workspace that matches their scope without duplicate page logic.
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-white/10 bg-[#1B211D] p-4">
-              <div className="grid gap-2 sm:grid-cols-3" role="tablist">
-                {roleModes.map((mode) => {
-                  const isActive = mode.id === activeRole;
-
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => setActiveRole(mode.id)}
-                      className={`flex h-12 items-center justify-center gap-2 rounded-md border text-sm font-bold transition ${
-                        isActive
-                          ? "border-[#A6E22E] bg-[#A6E22E] text-[#121614]"
-                          : "border-white/10 bg-[#252C27] text-[#DDE6DA] hover:border-white/30"
-                      }`}
-                      role="tab"
-                      aria-selected={isActive}
-                    >
-                      {mode.id === "admin" && <ShieldCheck className="h-4 w-4" />}
-                      {mode.id === "manager" && <UsersRound className="h-4 w-4" />}
-                      {mode.id === "student" && <GitBranch className="h-4 w-4" />}
-                      {mode.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-                <div className="rounded-lg bg-[#F8FAF4] p-6 text-[#121614]">
-                  <p className="text-sm font-black uppercase text-[#537500]">
-                    {selectedRole.eyebrow}
-                  </p>
-                  <h3 className="mt-3 text-3xl font-black leading-tight">
-                    {selectedRole.headline}
-                  </h3>
-                  <p className="mt-4 text-sm leading-6 text-[#4B5A50]">
-                    {selectedRole.description}
-                  </p>
-
-                  <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                    {selectedRole.stats.map((stat) => (
-                      <div
-                        key={stat.label}
-                        className="rounded-lg border border-[#D9E4D4] bg-white p-4"
-                      >
-                        <p className="text-3xl font-black">{stat.value}</p>
-                        <p className="mt-1 text-xs font-bold uppercase text-[#6A766D]">
-                          {stat.label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-white/10 bg-[#252C27] p-5">
-                  <p className="text-sm font-black uppercase text-[#A6E22E]">
-                    Guarded capabilities
-                  </p>
-                  <div className="mt-5 space-y-3">
-                    {selectedRole.checks.map((check) => (
-                      <div key={check} className="flex items-start gap-3">
-                        <CheckCircle2
-                          className="mt-0.5 h-5 w-5 shrink-0"
-                          style={{ color: selectedRole.accent }}
-                        />
-                        <span className="text-sm leading-6 text-[#E8EEE6]">
-                          {check}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-8 rounded-lg bg-[#121614] p-4">
-                    <div className="flex items-center gap-2 text-sm font-bold text-white">
-                      <LockKeyhole className="h-4 w-4 text-[#A6E22E]" />
-                      Session and scope checks run before render
-                    </div>
-                    <div className="mt-4 h-2 rounded-md bg-white/10">
-                      <div
-                        className="h-2 rounded-md"
-                        style={{
-                          width:
-                            selectedRole.id === "admin"
-                              ? "92%"
-                              : selectedRole.id === "manager"
-                                ? "68%"
-                                : "42%",
-                          backgroundColor: selectedRole.accent,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="impact" className="bg-white px-5 py-20 sm:px-8">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div>
-            <p className="text-sm font-bold uppercase text-[#537500]">
-              Interactive planning
-            </p>
-            <h2 className="mt-3 text-4xl font-black leading-tight text-[#121614] sm:text-5xl">
-              Size the signal before the semester starts.
-            </h2>
-            <p className="mt-5 text-base leading-7 text-[#5C685F]">
-              Move the team size to preview the weekly operational load Lime++
-              can turn into scoped dashboards, review queues, and report data.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-[#D9E4D4] bg-[#F8FAF4] p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-bold text-[#5C685F]">Team size</p>
-                <p className="mt-1 text-5xl font-black text-[#121614]">
-                  {teamSize}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[#121614] text-[#A6E22E]">
-                <Network className="h-6 w-6" />
-              </div>
-            </div>
-
-            <input
-              aria-label="Team size"
-              className="mt-7 w-full accent-[#537500]"
-              type="range"
-              min="12"
-              max="160"
-              step="4"
-              value={teamSize}
-              onChange={(event) => setTeamSize(Number(event.target.value))}
-            />
-
-            <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              <ImpactStat label="weekly events" value={estimate.weeklyEvents} />
-              <ImpactStat label="review hours" value={estimate.reviewHours} />
-              <ImpactStat label="scoped reports" value={estimate.scopedReports} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#ECF5E8] px-5 py-16 sm:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl font-black text-[#121614]">
-              Start with the same GitHub login your team already uses.
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-[#4B5A50]">
-              Authenticated users go straight to the app. Visitors can inspect
-              the product story without hitting protected routes.
-            </p>
-          </div>
-          <Link
-            href="/login"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#121614] px-5 text-sm font-bold text-white transition hover:bg-[#263029]"
-          >
-            Launch Lime++
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </section>
+    <main className="min-h-screen bg-background text-foreground antialiased">
+      <SiteHeader />
+      <Hero />
+      <FeatureGrid />
+      <RolesSection
+        activeRole={activeRole}
+        setActiveRole={setActiveRole}
+        selectedRole={selectedRole}
+      />
+      <WorkflowSection />
+      <PreviewSection />
+      <ClosingCta />
+      <SiteFooter />
     </main>
   );
 }
 
-function HeroScene({
-  role,
-  offset,
-}: {
-  role: RoleMode;
-  offset: { x: number; y: number };
-}) {
+/* ---------------------------------------------------------------- */
+/* Header                                                            */
+/* ---------------------------------------------------------------- */
+function SiteHeader() {
   return (
-    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="absolute inset-0 bg-[#ECF5E8]" />
-      <div
-        className="absolute -right-8 top-24 hidden w-[560px] rounded-lg border border-[#C8D9C2] bg-white/80 p-4 shadow-2xl shadow-[#3A4A36]/10 backdrop-blur md:block"
-        style={{
-          transform: `translate3d(${offset.x * -18}px, ${offset.y * -14}px, 0)`,
-        }}
-      >
-        <div className="flex items-center justify-between border-b border-[#E3ECDf] pb-3">
-          <div className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4 text-[#537500]" />
-            <span className="text-sm font-black text-[#121614]">
-              Live project board
-            </span>
-          </div>
-          <span className="rounded-md bg-[#ECF5E8] px-2 py-1 text-xs font-bold text-[#537500]">
-            Synced
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <span className="text-lg font-black tracking-tighter">L+</span>
           </span>
+          <span className="text-base font-bold tracking-tight">Lime++</span>
+        </Link>
+
+        <nav
+          className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex"
+          aria-label="Primary"
+        >
+          <a href="#features" className="transition-colors hover:text-foreground">
+            Features
+          </a>
+          <a href="#roles" className="transition-colors hover:text-foreground">
+            Roles
+          </a>
+          <a href="#workflow" className="transition-colors hover:text-foreground">
+            How it works
+          </a>
+          <a href="#preview" className="transition-colors hover:text-foreground">
+            Preview
+          </a>
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Link href="/login">Sign in</Link>
+          </Button>
+          <Button asChild size="sm" className="gap-1.5">
+            <Link href="/login">
+              <Github className="h-4 w-4" />
+              Get started
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Hero                                                              */
+/* ---------------------------------------------------------------- */
+function Hero() {
+  return (
+    <section className="relative overflow-hidden">
+      {/* Decorative background — soft primary wash + subtle grid */}
+      <div
+        className="pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black_30%,transparent_80%)]"
+        aria-hidden
+      >
+        <div className="absolute inset-0 bg-primary/[0.06]" />
+        <div className="absolute inset-0 [background-image:linear-gradient(to_right,color-mix(in_srgb,var(--color-border)_60%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_srgb,var(--color-border)_60%,transparent)_1px,transparent_1px)] [background-size:48px_48px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:px-8 lg:pb-32 lg:pt-32">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Contribution intelligence for student software projects
+          </div>
+
+          <h1 className="text-balance text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+            Grade GitHub work
+            <br />
+            <span className="text-primary">with evidence</span>, not memory.
+          </h1>
+
+          <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
+            Lime++ turns repository activity into role-scoped dashboards,
+            verifiable per-student contribution scores, and audit-ready reports
+            — built for the way undergraduate software teams actually run.
+          </p>
+
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild size="lg" className="gap-2 px-6">
+              <Link href="/login">
+                <Github className="h-4 w-4" />
+                Continue with GitHub
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="gap-2 px-6">
+              <a href="#features">
+                See what it does
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </Button>
+          </div>
+
+          <p className="mt-6 text-xs text-muted-foreground">
+            No credit card. Sign in with the GitHub account your team already uses.
+          </p>
         </div>
 
-        <div className="mt-4 grid gap-3">
-          {["API audit trail", "Kanban sync lock", "PR review score"].map(
-            (item, index) => (
+        {/* Stylised dashboard preview card — themed, no fake numbers */}
+        <div className="relative mx-auto mt-16 max-w-5xl lg:mt-20">
+          <div className="relative rounded-2xl border border-border bg-card p-1.5 shadow-2xl shadow-primary/10">
+            <HeroDashboardMock />
+          </div>
+          {/* edge glow */}
+          <div className="pointer-events-none absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-br from-primary/30 via-transparent to-transparent opacity-50 blur-2xl" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HeroDashboardMock() {
+  return (
+    <div className="overflow-hidden rounded-xl bg-background">
+      {/* Mock app header */}
+      <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
+        <span className="ml-3 text-xs text-muted-foreground">
+          lime.app/projects/cs401-webapp
+        </span>
+      </div>
+
+      <div className="grid gap-4 p-4 sm:grid-cols-12 sm:gap-5 sm:p-6">
+        {/* Sidebar mock */}
+        <div className="hidden flex-col gap-2 sm:col-span-3 sm:flex">
+          {[
+            { label: "Dashboard", active: false },
+            { label: "Projects", active: true },
+            { label: "Tasks", active: false },
+            { label: "Audit", active: false },
+            { label: "Reports", active: false },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs ${
+                item.active
+                  ? "bg-primary/10 font-semibold text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${item.active ? "bg-primary" : "bg-muted-foreground/40"}`}
+              />
+              {item.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Main mock */}
+        <div className="sm:col-span-9 sm:space-y-4 space-y-3">
+          {/* Stat row */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Completion", v: "78%" },
+              { label: "Members", v: "12" },
+              { label: "Open PRs", v: "8" },
+              { label: "Merged", v: "34" },
+            ].map((stat) => (
               <div
-                key={item}
-                className="grid grid-cols-[1fr_88px_58px] items-center gap-3 rounded-md border border-[#E3ECDf] bg-[#FBFCF8] p-3"
+                key={stat.label}
+                className="rounded-lg border border-border bg-card px-3 py-2.5"
               >
-                <div>
-                  <p className="text-sm font-bold text-[#121614]">{item}</p>
-                  <p className="mt-1 text-xs text-[#6A766D]">
-                    {role.label} scope
-                  </p>
-                </div>
-                <div className="h-2 rounded-md bg-[#DDE8D8]">
-                  <div
-                    className="h-2 rounded-md"
-                    style={{
-                      width: `${62 + index * 11}%`,
-                      backgroundColor: role.accent,
-                    }}
-                  />
-                </div>
-                <span className="text-right text-sm font-black text-[#121614]">
-                  +{index + 4}
-                </span>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {stat.label}
+                </p>
+                <p className="mt-1 text-lg font-bold text-foreground">{stat.v}</p>
               </div>
-            ),
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
 
-      <div
-        className="absolute bottom-10 left-[5%] hidden w-[360px] rounded-lg border border-[#C8D9C2] bg-[#121614] p-4 text-white shadow-2xl shadow-[#3A4A36]/15 lg:block"
-        style={{
-          transform: `translate3d(${offset.x * 12}px, ${offset.y * 10}px, 0)`,
-        }}
-      >
-        <div className="flex items-center gap-2 text-sm font-black">
-          <ShieldCheck className="h-4 w-4 text-[#A6E22E]" />
-          Access matrix
-        </div>
-        <div className="mt-4 grid grid-cols-4 gap-2">
-          {Array.from({ length: 16 }).map((_, index) => (
-            <span
-              key={index}
-              className="h-10 rounded-md border border-white/10"
-              style={{
-                backgroundColor:
-                  index % 5 === 0
-                    ? role.accent
-                    : index % 3 === 0
-                      ? "#283029"
-                      : "#1B211D",
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div
-        className="absolute right-[12%] top-[58%] hidden w-[300px] rounded-lg border border-[#C8D9C2] bg-white/90 p-4 shadow-2xl shadow-[#3A4A36]/10 backdrop-blur-xl xl:block"
-        style={{
-          transform: `translate3d(${offset.x * -8}px, ${offset.y * 16}px, 0)`,
-        }}
-      >
-        <div className="flex items-center gap-2 text-sm font-black text-[#121614]">
-          <BarChart3 className="h-4 w-4 text-[#16A3A3]" />
-          Contribution pulse
-        </div>
-        <div className="mt-5 flex h-28 items-end gap-2">
-          {[32, 54, 48, 72, 61, 88, 76, 94].map((height, index) => (
-            <span
-              key={index}
-              className="flex-1 rounded-md"
-              style={{
-                height: `${height}%`,
-                backgroundColor:
-                  index % 3 === 0
-                    ? "#16A3A3"
-                    : index % 2 === 0
-                      ? "#F5B942"
-                      : "#A6E22E",
-              }}
-            />
-          ))}
+          {/* Activity rows */}
+          <div className="rounded-lg border border-border bg-card">
+            <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Recent contributions
+            </div>
+            <div className="divide-y divide-border">
+              {[
+                { who: "alice-c", what: "PR #42 — Implement task assignment", pts: "+5" },
+                { who: "bob-w", what: "PR #41 — Add audit log endpoint", pts: "+8" },
+                { who: "diana-m", what: "Reviewed PR #40", pts: "+2" },
+              ].map((row) => (
+                <div key={row.what} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                    {row.who.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {row.what}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">@{row.who}</p>
+                  </div>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                    {row.pts} pts
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function ImpactStat({ label, value }: { label: string; value: number }) {
+/* ---------------------------------------------------------------- */
+/* Features                                                          */
+/* ---------------------------------------------------------------- */
+function FeatureGrid() {
   return (
-    <div className="rounded-lg border border-[#D9E4D4] bg-white p-4">
-      <p className="text-3xl font-black text-[#121614]">{value}</p>
-      <p className="mt-1 text-xs font-bold uppercase text-[#6A766D]">
-        {label}
-      </p>
-    </div>
+    <section id="features" className="border-t border-border py-20 sm:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            What it does
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            Built for the way student software projects actually run.
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            Every feature maps to something the supervisor, the student, or the
+            audit reviewer actually needs.
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature) => (
+            <div
+              key={feature.title}
+              className="group bg-background p-6 transition-colors hover:bg-muted/40 sm:p-7"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <feature.icon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-4 text-base font-bold tracking-tight">
+                {feature.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {feature.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Roles                                                             */
+/* ---------------------------------------------------------------- */
+function RolesSection({
+  activeRole,
+  setActiveRole,
+  selectedRole,
+}: {
+  activeRole: RoleMode["id"];
+  setActiveRole: (id: RoleMode["id"]) => void;
+  selectedRole: RoleMode;
+}) {
+  return (
+    <section
+      id="roles"
+      className="border-t border-border bg-muted/30 py-20 sm:py-28"
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            Role-aware UX
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            One product, three clean views.
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            Lime++ enforces role checks at the API boundary, so each person
+            lands in a workspace shaped by their scope — with no duplicate page
+            logic.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-12 max-w-4xl">
+          {/* Tab strip */}
+          <div
+            className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-border bg-background p-1 shadow-sm sm:w-auto"
+            role="tablist"
+          >
+            {roleModes.map((mode) => {
+              const isActive = mode.id === activeRole;
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setActiveRole(mode.id)}
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition-colors sm:flex-none sm:text-sm ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active panel */}
+          <div
+            className="mt-6 grid gap-6 rounded-2xl border border-border bg-background p-6 shadow-sm sm:p-8 lg:grid-cols-[1.2fr_1fr]"
+            role="tabpanel"
+          >
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                {selectedRole.eyebrow}
+              </p>
+              <h3 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                {selectedRole.headline}
+              </h3>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                {selectedRole.description}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {selectedRole.bullets.map((bullet) => (
+                <div
+                  key={bullet}
+                  className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
+                >
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span className="text-sm leading-5 text-foreground">
+                    {bullet}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Workflow                                                          */
+/* ---------------------------------------------------------------- */
+function WorkflowSection() {
+  return (
+    <section id="workflow" className="border-t border-border py-20 sm:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            How it works
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            From GitHub event to defensible grade.
+          </h2>
+        </div>
+
+        <ol className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {workflowSteps.map((step, i) => (
+            <li
+              key={step.n}
+              className="group relative rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            >
+              <span className="absolute right-5 top-5 text-xs font-mono font-semibold text-muted-foreground/60">
+                {step.n}
+              </span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {i === 0 && <Github className="h-4 w-4" />}
+                {i === 1 && <Users className="h-4 w-4" />}
+                {i === 2 && <GitPullRequest className="h-4 w-4" />}
+                {i === 3 && <FileText className="h-4 w-4" />}
+              </div>
+              <h3 className="mt-4 text-base font-bold tracking-tight">
+                {step.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {step.text}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Preview / "Under the hood"                                        */
+/* ---------------------------------------------------------------- */
+function PreviewSection() {
+  return (
+    <section
+      id="preview"
+      className="border-t border-border bg-muted/30 py-20 sm:py-28"
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+              Under the hood
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Verifiable evidence, all the way down.
+            </h2>
+            <p className="mt-5 text-base leading-7 text-muted-foreground">
+              Every score points to a specific GitHub event: a merged PR, an
+              approving review, a completed task. Every sensitive action — score
+              overrides, role changes, project locks — lands in an append-only
+              audit log that nobody can rewrite.
+            </p>
+
+            <div className="mt-8 space-y-4">
+              {[
+                {
+                  icon: Layers,
+                  title: "TypeScript monorepo",
+                  text: "NestJS backend · Next.js 15 frontend · Prisma + PostgreSQL · Redis-backed BullMQ workers.",
+                },
+                {
+                  icon: ShieldCheck,
+                  title: "Multi-tenant by design",
+                  text: "Seven scoped roles. Three partial unique indexes enforce role uniqueness at the database level.",
+                },
+                {
+                  icon: Lock,
+                  title: "Locked at the deadline",
+                  text: "Freeze a project at the end of the evaluation window so late merges can't drift the final score.",
+                },
+              ].map((item) => (
+                <div key={item.title} className="flex gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold tracking-tight">
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {item.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Audit-log style mock */}
+          <div className="rounded-2xl border border-border bg-card p-1.5 shadow-xl shadow-primary/5">
+            <div className="overflow-hidden rounded-xl bg-background">
+              <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold">Audit log</span>
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  append-only
+                </span>
+              </div>
+              <div className="divide-y divide-border font-mono text-[11px]">
+                {[
+                  {
+                    t: "10:42",
+                    action: "SCORE_OVERRIDE",
+                    actor: "prof.johnson",
+                    meta: "+5 → alice-c · reason: late-merge credit",
+                  },
+                  {
+                    t: "10:38",
+                    action: "PROJECT_LOCK",
+                    actor: "prof.johnson",
+                    meta: "cs401-webapp · evaluation closed",
+                  },
+                  {
+                    t: "10:31",
+                    action: "ROLE_CHANGE",
+                    actor: "admin",
+                    meta: "diana-m → PROJECT_LEAD · cs402-mobile",
+                  },
+                  {
+                    t: "10:17",
+                    action: "TASK_REASSIGN",
+                    actor: "prof.johnson",
+                    meta: "TASK-024 · bob-w → charlie-d",
+                  },
+                  {
+                    t: "10:02",
+                    action: "WEBHOOK_IGNORED",
+                    actor: "system",
+                    meta: "PR merged after lock · #38",
+                  },
+                ].map((entry) => (
+                  <div
+                    key={entry.t + entry.action}
+                    className="grid grid-cols-[44px_140px_1fr] gap-2 px-4 py-2 hover:bg-muted/40"
+                  >
+                    <span className="text-muted-foreground">{entry.t}</span>
+                    <span className="font-semibold text-primary">
+                      {entry.action}
+                    </span>
+                    <span className="truncate text-foreground/80">
+                      <span className="text-muted-foreground">@{entry.actor}</span>{" "}
+                      · {entry.meta}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Closing CTA                                                       */
+/* ---------------------------------------------------------------- */
+function ClosingCta() {
+  return (
+    <section className="border-t border-border py-20 sm:py-28">
+      <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card px-8 py-14 shadow-sm">
+          <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Github className="h-5 w-5" />
+          </div>
+          <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+            Sign in with the GitHub account your team already uses.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+            Authenticated users go straight to the app. Visitors can browse this
+            page without hitting protected routes.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild size="lg" className="gap-2 px-6">
+              <Link href="/login">
+                <Github className="h-4 w-4" />
+                Continue with GitHub
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Footer                                                            */
+/* ---------------------------------------------------------------- */
+function SiteFooter() {
+  return (
+    <footer className="border-t border-border py-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <span className="text-sm font-black tracking-tighter">L+</span>
+          </span>
+          <span className="text-sm font-semibold">Lime++</span>
+          <span className="text-xs text-muted-foreground">
+            · Contribution intelligence for student software projects
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Built at the Royal University of Phnom Penh.
+        </p>
+      </div>
+    </footer>
   );
 }
