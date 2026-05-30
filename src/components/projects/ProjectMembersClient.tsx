@@ -250,7 +250,7 @@ export function ProjectMembersClient({
       )}
 
       {canManageMembers && visibleUsersError && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-300">
           User candidates could not be loaded: {visibleUsersError}
         </div>
       )}
@@ -271,7 +271,7 @@ export function ProjectMembersClient({
               <p className="text-sm text-muted-foreground">Managers</p>
               <p className="text-2xl font-bold">{managerCount}</p>
             </div>
-            <UserCog className="h-6 w-6 text-blue-600" />
+            <UserCog className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </CardContent>
         </Card>
         <Card>
@@ -385,9 +385,9 @@ export function ProjectMembersClient({
                             className={cn(
                               "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium",
                               member.role === "PROJECT_MANAGER"
-                                ? "bg-blue-50 text-blue-700"
+                                ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
                                 : member.role === "PROJECT_LEAD"
-                                  ? "bg-purple-50 text-purple-700"
+                                  ? "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400"
                                   : "bg-muted text-muted-foreground",
                             )}
                           >

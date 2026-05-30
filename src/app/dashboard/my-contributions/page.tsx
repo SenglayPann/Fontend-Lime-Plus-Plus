@@ -306,7 +306,7 @@ function ContributorWorkspace({ data }: { data: MyContributions }) {
       </div>
 
       {data.warnings.length > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-md border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-200">
           <div className="mb-2 flex items-center gap-2 font-semibold">
             <AlertTriangle className="h-4 w-4" /> Needs Attention
           </div>

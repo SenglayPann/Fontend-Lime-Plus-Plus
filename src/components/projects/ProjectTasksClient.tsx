@@ -467,11 +467,11 @@ export function ProjectTasksClient({
                           className={cn(
                             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                             task.status === "DONE"
-                              ? "bg-green-100 text-green-700"
+                              ? "bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400"
                               : task.status === "IN_PROGRESS"
-                                ? "bg-blue-100 text-blue-700"
+                                ? "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400"
                                 : task.status === "BLOCKED"
-                                  ? "bg-red-100 text-red-700"
+                                  ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400"
                                   : "bg-muted text-muted-foreground",
                           )}
                         >
@@ -568,9 +568,9 @@ export function ProjectTasksClient({
                               className={cn(
                                 "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset",
                                 primaryPr.status === "MERGED"
-                                  ? "bg-purple-50 text-purple-700 ring-purple-700/10"
+                                  ? "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 ring-purple-700/10"
                                   : primaryPr.status === "OPEN"
-                                    ? "bg-green-50 text-green-700 ring-green-700/10"
+                                    ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 ring-green-700/10"
                                     : "bg-gray-50 text-gray-600 ring-gray-500/10",
                               )}
                             >
@@ -582,7 +582,7 @@ export function ProjectTasksClient({
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-amber-600 flex items-center italic">
+                          <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center italic">
                             <AlertCircle className="h-3 w-3 mr-1" /> Unlinked
                           </span>
                         )}

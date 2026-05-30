@@ -51,7 +51,7 @@ export default async function ProjectsPage({
   return (
     <DashboardLayout>
       {projectsResult.error && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="mb-6 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-300">
           {projectsResult.error}
         </div>
       )}

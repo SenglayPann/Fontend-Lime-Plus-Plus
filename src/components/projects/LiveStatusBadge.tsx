@@ -22,7 +22,7 @@ const COPY: Record<LiveStatus, { label: string; dot: string; text: string }> = {
   reconnecting: {
     label: "Reconnecting",
     dot: "bg-amber-500 animate-pulse",
-    text: "text-amber-700",
+    text: "text-amber-700 dark:text-amber-400",
   },
   disabled: {
     label: "Offline",

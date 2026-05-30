@@ -15,10 +15,10 @@ export interface AlertItem {
 }
 
 const styles: Record<AlertType, { bg: string; text: string; icon: any; border: string }> = {
-  info: { bg: "bg-blue-50", text: "text-blue-700", icon: Info, border: "border-blue-200" },
-  warning: { bg: "bg-amber-50", text: "text-amber-700", icon: AlertCircle, border: "border-amber-200" },
+  info: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-400", icon: Info, border: "border-blue-200" },
+  warning: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-400", icon: AlertCircle, border: "border-amber-200 dark:border-amber-900/50" },
   success: { bg: "bg-primary/10", text: "text-primary", icon: CheckCircle2, border: "border-primary/20" },
-  error: { bg: "bg-red-50", text: "text-red-700", icon: X, border: "border-red-200" },
+  error: { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-700 dark:text-red-400", icon: X, border: "border-red-200" },
 };
 
 export function AlertsList({ alerts: initialAlerts }: { alerts: AlertItem[] }) {

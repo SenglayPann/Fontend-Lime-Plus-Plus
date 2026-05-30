@@ -25,7 +25,7 @@ function LoginContent() {
         </div>
 
         {error && (
-          <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+          <div className="p-4 mb-4 text-sm text-red-800 dark:text-red-300 rounded-lg bg-red-50 dark:bg-red-950/30 dark:bg-gray-800 dark:text-red-400" role="alert">
             <span className="font-medium">Authentication Error!</span> {error}
           </div>
         )}

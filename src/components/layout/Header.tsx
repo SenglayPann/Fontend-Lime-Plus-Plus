@@ -2,6 +2,7 @@
 
 import { UserAccountDropdown } from "./UserAccountDropdown";
 import { MobileSidebar } from "./MobileSidebar";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header() {
   return (
@@ -10,7 +11,8 @@ export function Header() {
         <MobileSidebar />
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
         <UserAccountDropdown />
       </div>
     </header>

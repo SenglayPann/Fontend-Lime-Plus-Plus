@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       name: "Active Students",
       value: (statsData?.activeStudents ?? 0).toString(),
       icon: Users,
-      color: "text-blue-600",
+      color: "text-blue-600 dark:text-blue-400",
     },
     {
       name: "Ongoing Projects",
@@ -85,7 +85,7 @@ export default async function DashboardPage() {
       name: "Pull Requests",
       value: (statsData?.pullRequests ?? 0).toString(),
       icon: GitPullRequest,
-      color: "text-purple-600",
+      color: "text-purple-600 dark:text-purple-400",
     },
     {
       name: "Avg. Contribution",
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
         </div>
 
         {loadErrors.length > 0 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-300">
             {loadErrors.join(" ")}
           </div>
         )}

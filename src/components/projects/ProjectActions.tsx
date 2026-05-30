@@ -100,7 +100,7 @@ export function ProjectActions({
         {canLockProject && (
           <Button
             variant="outline"
-            className="gap-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200 disabled:opacity-60"
+            className="gap-2 text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-50 border-amber-200 dark:border-amber-900/50 disabled:opacity-60"
             onClick={() => setIsLockDialogOpen(true)}
             disabled={pendingAction !== null || isLocked}
           >

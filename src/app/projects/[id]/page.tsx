@@ -184,13 +184,13 @@ export default async function ProjectDetailPage({
           label: "Active Members",
           value: memberCount,
           icon: Users,
-          color: "text-blue-600",
+          color: "text-blue-600 dark:text-blue-400",
         },
         {
           label: "PR Acceptance",
           value: `${prAcceptance}%`,
           icon: Github,
-          color: "text-purple-600",
+          color: "text-purple-600 dark:text-purple-400",
         },
         {
           label: "Avg. Done Tasks",
@@ -210,13 +210,13 @@ export default async function ProjectDetailPage({
           label: "My Tasks",
           value: totalTasks,
           icon: ClipboardList,
-          color: "text-blue-600",
+          color: "text-blue-600 dark:text-blue-400",
         },
         {
           label: "Merged PRs",
           value: mergedPrs,
           icon: Github,
-          color: "text-purple-600",
+          color: "text-purple-600 dark:text-purple-400",
         },
         {
           label: "Done Tasks",
@@ -316,8 +316,8 @@ export default async function ProjectDetailPage({
           canManageCurrentProject ? (
             <LinkGitHubBanner projectId={id} accessToken={token} />
           ) : (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 text-sm text-amber-800 flex items-start gap-2.5">
-              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 p-4 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div>
                 <span className="font-bold">Project Integration Required:</span> This project is not linked to any GitHub repository yet. Please ask your Project Manager or Lead to configure the integration.
               </div>
@@ -326,7 +326,7 @@ export default async function ProjectDetailPage({
         )}
 
         {(tasksResult.error || prsResult.error) && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-300">
             Some related project data could not be loaded:{" "}
             {tasksResult.error || prsResult.error}
           </div>

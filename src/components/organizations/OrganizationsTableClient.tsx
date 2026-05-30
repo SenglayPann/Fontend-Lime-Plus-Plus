@@ -289,7 +289,7 @@ export function OrganizationsTableClient({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                      <span className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-950/30 px-2 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 ring-1 ring-inset ring-blue-700/10">
                         {organization.licensePlan ||
                           organization.license ||
                           "standard"}
@@ -324,7 +324,7 @@ export function OrganizationsTableClient({
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
                           (organization.status || "Active") === "Active"
                             ? "bg-primary/10 text-primary"
-                            : "bg-amber-100 text-amber-700",
+                            : "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
                         )}
                       >
                         {organization.status || "Active"}

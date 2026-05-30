@@ -332,7 +332,7 @@ export default function NewDepartmentPage() {
               </div>
             )}
             {usersError && (
-              <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
+              <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-300 text-sm font-medium">
                 Department creation is available, but manager candidates could
                 not be loaded: {usersError}
               </div>

@@ -277,11 +277,11 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {entry.claimedByUser ? (
-                        <span className="text-green-600 flex items-center gap-1 text-xs">
+                        <span className="text-green-600 dark:text-green-400 flex items-center gap-1 text-xs">
                           Claimed by {entry.claimedByUser.name || entry.claimedByUser.email}
                         </span>
                       ) : (
-                        <span className="text-amber-600 text-xs">Pending</span>
+                        <span className="text-amber-600 dark:text-amber-400 text-xs">Pending</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
