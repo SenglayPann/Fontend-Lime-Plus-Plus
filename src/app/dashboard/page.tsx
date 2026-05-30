@@ -8,7 +8,6 @@ import {
   GitPullRequest,
   Trophy,
   ArrowUpRight,
-  TrendingUp,
 } from "lucide-react";
 
 import { getServerSession } from "next-auth/next";
@@ -74,28 +73,24 @@ export default async function DashboardPage() {
       name: "Active Students",
       value: (statsData?.activeStudents ?? 0).toString(),
       icon: Users,
-      change: "Live",
       color: "text-blue-600",
     },
     {
       name: "Ongoing Projects",
       value: (statsData?.ongoingProjects ?? 0).toString(),
       icon: FolderKanban,
-      change: "Live",
       color: "text-primary",
     },
     {
       name: "Pull Requests",
       value: (statsData?.pullRequests ?? 0).toString(),
       icon: GitPullRequest,
-      change: "Live",
       color: "text-purple-600",
     },
     {
       name: "Avg. Contribution",
       value: (statsData?.avgContribution ?? 0).toString(),
       icon: Trophy,
-      change: "Live",
       color: "text-amber-500",
     },
   ];
@@ -122,7 +117,7 @@ export default async function DashboardPage() {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <Card key={stat.name} className="overflow-hidden">
+            <Card key={stat.name}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.name}
@@ -131,17 +126,7 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1 text-primary" />
-                  <span className="text-primary font-medium mr-1">
-                    {stat.change}
-                  </span>
-                  from database
-                </p>
               </CardContent>
-              <div className="h-1 bg-muted">
-                <div className="h-full bg-primary w-2/3" />
-              </div>
             </Card>
           ))}
         </div>
@@ -181,8 +166,18 @@ export default async function DashboardPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                          +{activity.score} pts
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                            activity.score > 0
+                              ? "bg-primary/10 text-primary"
+                              : activity.score < 0
+                                ? "bg-destructive/10 text-destructive"
+                                : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {activity.score > 0 ? "+" : ""}
+                          {activity.score} pts
                         </span>
                       </div>
                     </div>
@@ -214,31 +209,40 @@ export default async function DashboardPage() {
                     No department data available.
                   </p>
                 )}
-                {topDepartments.map((dept, idx) => {
+                {(() => {
+                  const maxScore = topDepartments.reduce(
+                    (max, dept) => Math.max(max, Number(dept.avgScore) || 0),
+                    0,
+                  );
                   const colors = [
                     "bg-primary",
                     "bg-blue-500",
                     "bg-purple-500",
                     "bg-amber-500",
                   ];
-                  const color = colors[idx % colors.length];
-                  return (
-                    <div key={dept.name} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{dept.name}</span>
-                        <span className="text-muted-foreground">
-                          {dept.avgScore}% Avg.
-                        </span>
+                  return topDepartments.map((dept, idx) => {
+                    const color = colors[idx % colors.length];
+                    const score = Number(dept.avgScore) || 0;
+                    const widthPct =
+                      maxScore > 0 ? (score / maxScore) * 100 : 0;
+                    return (
+                      <div key={dept.name} className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{dept.name}</span>
+                          <span className="text-muted-foreground">
+                            {score} avg
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn("h-full rounded-full", color)}
+                            style={{ width: `${widthPct}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full", color)}
-                          style={{ width: `${Math.min(dept.avgScore, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </CardContent>
           </Card>
