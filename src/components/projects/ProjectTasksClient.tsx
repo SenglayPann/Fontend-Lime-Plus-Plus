@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   AlertCircle,
   CheckCircle2,
@@ -151,7 +152,9 @@ export function ProjectTasksClient({
 
   async function syncTasks() {
     if (isLocked) {
-      setError("Cannot sync tasks after project lock");
+      const message = "Cannot sync tasks after project lock";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -175,10 +178,16 @@ export function ProjectTasksClient({
         );
       }
 
-      setSyncSummary(json.success ? json.data : json);
+      const summary = json.success ? json.data : json;
+      setSyncSummary(summary);
+      toast.success(
+        `Synced ${summary.syncedCount ?? 0} of ${summary.totalItemsSeen ?? 0} item(s) from GitHub`,
+      );
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Failed to sync tasks");
+      const message = err.message || "Failed to sync tasks";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSyncing(false);
     }
@@ -209,9 +218,12 @@ export function ProjectTasksClient({
           json?.error?.message || json?.message || "Failed to update task",
         );
       }
+      toast.success("Task updated");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Failed to update task");
+      const message = err.message || "Failed to update task";
+      setError(message);
+      toast.error(message);
     } finally {
       setPendingAssignmentId(null);
     }
@@ -243,9 +255,12 @@ export function ProjectTasksClient({
         );
       }
 
+      toast.success("Assignee updated");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Failed to assign task");
+      const message = err.message || "Failed to assign task";
+      setError(message);
+      toast.error(message);
     } finally {
       setPendingAssignmentId(null);
     }

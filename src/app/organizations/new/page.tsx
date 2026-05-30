@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { Combobox } from "@/components/ui/combobox";
 
 export default function NewOrganizationPage() {
@@ -98,10 +99,13 @@ export default function NewOrganizationPage() {
         );
       }
 
+      toast.success("Organization created");
       router.push("/organizations");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Failed to create organization");
+      const message = err.message || "Failed to create organization";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

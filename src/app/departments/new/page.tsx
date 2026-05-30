@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -251,16 +252,18 @@ export default function NewDepartmentPage() {
         );
       }
 
+      toast.success("Department created");
       router.push("/departments");
       router.refresh();
     } catch (err) {
-      setError(
+      const message =
         err instanceof TypeError && err.message === "Failed to fetch"
           ? "Could not reach the backend API. Check that the backend is running and allowed by CORS."
           : err instanceof Error
             ? err.message
-            : "Failed to create department",
-      );
+            : "Failed to create department";
+      setError(message);
+      toast.error(message);
     }
   };
 

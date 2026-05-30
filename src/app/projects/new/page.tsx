@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { ArrowLeft, FolderKanban, Github, Loader2, Save } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -256,10 +257,13 @@ export default function NewProjectPage() {
         );
       }
 
+      toast.success("Project created");
       router.push(`/projects/${json.data.id}`);
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Failed to create project");
+      const message = err.message || "Failed to create project";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

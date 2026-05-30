@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AlertCircle, Github, Info, Loader2, Lock, ShieldAlert, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,9 +54,12 @@ export function LinkGitHubBanner({ projectId, accessToken }: LinkGitHubBannerPro
       }
 
       setIsOpen(false);
+      toast.success("GitHub repository linked");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during attachment.");
+      const message = err.message || "An unexpected error occurred during attachment.";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

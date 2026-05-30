@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Loader2, Lock, MoreHorizontal, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +47,9 @@ export function ProjectActions({
 
   async function runAction(action: "sync" | "lock") {
     if (isLocked) {
-      setError("Cannot sync or lock after project lock");
+      const message = "Cannot sync or lock after project lock";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -73,10 +76,18 @@ export function ProjectActions({
 
       if (action === "lock") {
         setIsLockDialogOpen(false);
+        toast.success("Project locked. Scoring is frozen.");
+      } else {
+        const summary = json.success ? json.data : json;
+        toast.success(
+          `Synced ${summary?.syncedCount ?? 0} of ${summary?.totalItemsSeen ?? 0} item(s) from GitHub`,
+        );
       }
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Project action failed");
+      const message = err.message || "Project action failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setPendingAction(null);
     }
