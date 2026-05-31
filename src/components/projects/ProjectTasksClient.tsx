@@ -374,6 +374,7 @@ export function ProjectTasksClient({
                 <option value="IN_PROGRESS">In progress</option>
                 <option value="DONE">Done</option>
                 <option value="BLOCKED">Blocked</option>
+                <option value="ARCHIVED">Archived</option>
               </select>
             </div>
           </div>
@@ -472,7 +473,9 @@ export function ProjectTasksClient({
                                 ? "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400"
                                 : task.status === "BLOCKED"
                                   ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400"
-                                  : "bg-muted text-muted-foreground",
+                                  : task.status === "ARCHIVED"
+                                    ? "bg-zinc-200 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 line-through"
+                                    : "bg-muted text-muted-foreground",
                           )}
                         >
                           {task.status === "DONE" ? (
