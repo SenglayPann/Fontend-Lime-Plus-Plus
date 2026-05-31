@@ -24,7 +24,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      // motion-safe:scroll-smooth enables smooth scrolling on anchor
+      // jumps (landing-page nav links use href="#section" anchors) while
+      // respecting prefers-reduced-motion. scroll-pt-20 gives the target
+      // headings room to clear the sticky 64px site header.
+      className="motion-safe:scroll-smooth scroll-pt-20"
+    >
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
