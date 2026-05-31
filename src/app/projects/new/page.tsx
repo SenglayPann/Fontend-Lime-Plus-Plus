@@ -67,11 +67,16 @@ export default function NewProjectPage() {
   const [connectionStatus, setConnectionStatus] = useState<
     "idle" | "ok" | "failed"
   >("idle");
+  const [installPrompt, setInstallPrompt] = useState<{
+    owner: string;
+    installUrl: string | null;
+  } | null>(null);
 
   // Reset the connection status whenever any GitHub-related field changes —
   // the prior "ok" badge would otherwise lie about the current inputs.
   useEffect(() => {
     setConnectionStatus("idle");
+    setInstallPrompt(null);
   }, [repository, githubProjectId, githubToken]);
 
   const canTestConnection = Boolean(repository && githubProjectId);
@@ -98,13 +103,28 @@ export default function NewProjectPage() {
       );
       const json = await res.json().catch(() => null);
       if (!res.ok) {
+        const payload = (json?.message && typeof json.message === "object"
+          ? json.message
+          : json) ?? {};
+        if (payload?.code === "APP_NOT_INSTALLED") {
+          setInstallPrompt({
+            owner: payload.owner,
+            installUrl: payload.installUrl ?? null,
+          });
+          setConnectionStatus("failed");
+          toast.error(
+            `Lime++ GitHub App not installed on ${payload.owner}`,
+          );
+          return;
+        }
         throw new Error(
           json?.error?.message ||
-            json?.message ||
+            (typeof json?.message === "string" ? json.message : null) ||
             "GitHub validation failed",
         );
       }
       setConnectionStatus("ok");
+      setInstallPrompt(null);
       toast.success("GitHub connection looks good");
     } catch (err: any) {
       setConnectionStatus("failed");
@@ -309,8 +329,23 @@ export default function NewProjectPage() {
       const json = await res.json();
 
       if (!res.ok) {
+        const payload = (json?.message && typeof json.message === "object"
+          ? json.message
+          : json) ?? {};
+        if (payload?.code === "APP_NOT_INSTALLED") {
+          setInstallPrompt({
+            owner: payload.owner,
+            installUrl: payload.installUrl ?? null,
+          });
+          const msg = `Lime++ GitHub App not installed on ${payload.owner}`;
+          setError(msg);
+          toast.error(msg);
+          return;
+        }
         throw new Error(
-          json.error?.message || json.message || "Failed to create project",
+          json.error?.message ||
+            (typeof json.message === "string" ? json.message : null) ||
+            "Failed to create project",
         );
       }
 
@@ -547,12 +582,41 @@ export default function NewProjectPage() {
                     Repository and Project V2 reachable
                   </span>
                 )}
-                {connectionStatus === "failed" && (
+                {connectionStatus === "failed" && !installPrompt && (
                   <span className="text-xs font-medium text-destructive">
                     Validation failed — see the toast for details.
                   </span>
                 )}
               </div>
+
+              {installPrompt && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                  <p className="font-medium text-amber-700 dark:text-amber-400">
+                    Lime++ GitHub App is not installed on{" "}
+                    <code className="font-mono">{installPrompt.owner}</code>
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Without it, pull request and issue events from this
+                    repository can't reach Lime++. The repository owner needs
+                    to install the app before this project can sync.
+                  </p>
+                  {installPrompt.installUrl ? (
+                    <a
+                      href={installPrompt.installUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                    >
+                      Install the Lime++ GitHub App →
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Ask {installPrompt.owner} to install the Lime++ GitHub
+                      App, then click Test connection again.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <div className="grid gap-4 sm:grid-cols-2">
