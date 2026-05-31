@@ -47,6 +47,9 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
   const [revokeMembership, setRevokeMembership] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<AllowlistEntry | null>(
+    null,
+  );
 
   async function approve(entry: AllowlistEntry) {
     setPendingActionId(entry.id);
@@ -76,7 +79,9 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
     }
   }
 
-  async function reject(entry: AllowlistEntry) {
+  async function confirmReject() {
+    if (!rejectTarget) return;
+    const entry = rejectTarget;
     setPendingActionId(entry.id);
     try {
       const res = await fetch(
@@ -86,11 +91,23 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
+      const json = await res.json().catch(() => null);
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
         throw new Error(json?.message || "Failed to reject");
       }
-      toast.success(`Rejected ${entry.value}.`);
+      const rolesStripped =
+        json?.data?.rolesStripped ?? json?.rolesStripped ?? 0;
+      const projectsStripped =
+        json?.data?.projectsStripped ?? json?.projectsStripped ?? 0;
+      const cascadeBits: string[] = [];
+      if (rolesStripped > 0) cascadeBits.push(`${rolesStripped} role(s)`);
+      if (projectsStripped > 0)
+        cascadeBits.push(`${projectsStripped} project membership(s)`);
+      const summary = cascadeBits.length
+        ? ` Also removed: ${cascadeBits.join(", ")}.`
+        : "";
+      toast.success(`Rejected ${entry.value}.${summary}`);
+      setRejectTarget(null);
       await fetchEntries();
     } catch (err: any) {
       toast.error(err.message || "Failed to reject");
@@ -362,7 +379,7 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
                           variant="outline"
                           size="sm"
                           className="gap-1 text-destructive border-destructive/40 hover:bg-destructive/10"
-                          onClick={() => reject(entry)}
+                          onClick={() => setRejectTarget(entry)}
                           disabled={pendingActionId === entry.id}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -441,6 +458,69 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
           </>
         );
       })()}
+
+      <Dialog
+        open={!!rejectTarget}
+        onOpenChange={(open) => {
+          if (!open && pendingActionId !== rejectTarget?.id) {
+            setRejectTarget(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject contributor?</DialogTitle>
+            <DialogDescription>
+              {rejectTarget ? (
+                <>
+                  Rejecting{" "}
+                  <span className="font-medium font-mono">
+                    {rejectTarget.value}
+                  </span>{" "}
+                  will mark this entry as REJECTED. Future merged PRs they
+                  author on this org's projects will continue to be held
+                  back from scoring.
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            <p className="font-medium text-destructive">
+              This will also strip every role they currently hold in this
+              organization
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Organization-, department-, and project-scoped UserRole rows
+              + every ProjectMember row on this org's projects will be
+              removed in one transaction. Global ADMIN roles are untouched.
+              If they're the sole organization manager, the operation is
+              refused.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRejectTarget(null)}
+              disabled={pendingActionId === rejectTarget?.id}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmReject}
+              disabled={pendingActionId === rejectTarget?.id}
+              className="gap-2"
+            >
+              {pendingActionId === rejectTarget?.id && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              Reject &amp; strip roles
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!deleteTarget}
