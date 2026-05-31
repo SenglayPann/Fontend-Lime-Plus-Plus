@@ -30,7 +30,12 @@ async function fetchVerification(id: string): Promise<VerifyResponse | null> {
     );
     if (res.status === 404) return null;
     if (!res.ok) return null;
-    return (await res.json()) as VerifyResponse;
+    const json = await res.json();
+    // Backend wraps successful responses as { success: true, data: ... }
+    // via a global TransformInterceptor; unwrap before returning.
+    const payload = json?.success && json?.data ? json.data : json;
+    if (!payload?.project) return null;
+    return payload as VerifyResponse;
   } catch {
     return null;
   }
