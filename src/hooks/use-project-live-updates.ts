@@ -38,11 +38,20 @@ export function useProjectLiveUpdates(
 
     es.onopen = () => setStatus("live");
 
-    const refresh = () => router.refresh();
-
-    // The backend uses `type: 'project.updated'` for content events and
-    // `type: 'heartbeat'` for keepalives. Only refresh on content events.
-    es.addEventListener("project.updated", refresh);
+    // NestJS @Sse serializes the entire MessageEvent object as `data:`
+    // without emitting a matching `event:` line, so every message arrives
+    // here on the default "message" handler instead of the named one we
+    // used to listen for. We inspect the payload's `type` field instead.
+    es.onmessage = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.data);
+        if (parsed?.type === "project.updated") {
+          router.refresh();
+        }
+      } catch {
+        // Ignore malformed payloads; keepalives are JSON and won't throw.
+      }
+    };
 
     es.onerror = () => {
       // EventSource auto-reconnects internally; we just surface the state.
@@ -50,7 +59,6 @@ export function useProjectLiveUpdates(
     };
 
     return () => {
-      es.removeEventListener("project.updated", refresh);
       es.close();
     };
   }, [projectId, accessToken, router]);
