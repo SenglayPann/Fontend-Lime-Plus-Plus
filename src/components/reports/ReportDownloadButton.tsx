@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, FileSpreadsheet, Loader2 } from "lucide-react";
+import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface ReportDownloadButtonProps {
   projectId: string;
@@ -19,12 +20,10 @@ export function ReportDownloadButton({
   format,
 }: ReportDownloadButtonProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
   const handleDownload = async () => {
     setLoading(true);
-    setError(null);
     try {
       const endpoint =
         type === "individual"
@@ -37,7 +36,20 @@ export function ReportDownloadButton({
         },
       });
 
-      if (!response.ok) throw new Error("Failed to generate report");
+      if (!response.ok) {
+        let message = "Failed to generate report";
+        try {
+          const json = await response.json();
+          message =
+            json?.message ||
+            json?.error?.message ||
+            json?.error ||
+            message;
+        } catch {
+          // Body wasn't JSON — keep the default message.
+        }
+        throw new Error(message);
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -54,11 +66,10 @@ export function ReportDownloadButton({
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
+      toast.success(`${format.toUpperCase()} downloaded`);
+    } catch (error: any) {
       console.error("Download error:", error);
-      setError(
-        "Failed to download report. Please ensure you have appropriate permissions.",
-      );
+      toast.error(error?.message || "Failed to download report");
     } finally {
       setLoading(false);
     }
@@ -67,27 +78,20 @@ export function ReportDownloadButton({
   const Icon = format === "pdf" ? FileText : FileSpreadsheet;
 
   return (
-    <div className="inline-flex flex-col items-start gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2"
-        disabled={loading}
-        onClick={handleDownload}
-      >
-        {loading ? (
-          <Loader2 data-testid="loader" className="h-4 w-4 animate-spin" />
-        ) : (
-          <Icon className="h-4 w-4" />
-        )}
-        {format === "pdf" ? "Export PDF" : "Export CSV"}
-      </Button>
-      {error && (
-        <p className="max-w-64 text-xs font-medium text-destructive" role="alert">
-          {error}
-        </p>
+    <Button
+      variant="outline"
+      size="sm"
+      className="gap-2"
+      disabled={loading}
+      onClick={handleDownload}
+    >
+      {loading ? (
+        <Loader2 data-testid="loader" className="h-4 w-4 animate-spin" />
+      ) : (
+        <Icon className="h-4 w-4" />
       )}
-    </div>
+      {format === "pdf" ? "Export PDF" : "Export CSV"}
+    </Button>
   );
 }
 

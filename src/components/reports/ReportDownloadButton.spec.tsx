@@ -2,8 +2,12 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { ReportDownloadButton } from "./ReportDownloadButton";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 jest.mock("next-auth/react");
+jest.mock("sonner", () => ({
+  toast: { success: jest.fn(), error: jest.fn() },
+}));
 
 describe("ReportDownloadButton", () => {
   const mockSession = {
@@ -12,6 +16,8 @@ describe("ReportDownloadButton", () => {
 
   beforeEach(() => {
     (useSession as jest.Mock).mockReturnValue({ data: mockSession });
+    (toast.success as jest.Mock).mockClear();
+    (toast.error as jest.Mock).mockClear();
     (global as any).URL.createObjectURL = jest.fn();
     (global as any).URL.revokeObjectURL = jest.fn();
 
@@ -53,10 +59,11 @@ describe("ReportDownloadButton", () => {
     });
   });
 
-  it("shows an inline error when download fails", async () => {
+  it("shows a toast when download fails", async () => {
     (global as any).fetch = jest.fn().mockResolvedValue({
       ok: false,
       headers: { get: jest.fn() },
+      json: () => Promise.resolve({ message: "Server said no" }),
     });
 
     render(<ReportDownloadButton projectId="p1" type="project" format="pdf" />);
@@ -64,9 +71,7 @@ describe("ReportDownloadButton", () => {
     fireEvent.click(screen.getByText("Export PDF"));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Failed to download report",
-      );
+      expect(toast.error).toHaveBeenCalledWith("Server said no");
     });
   });
 });
