@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Check, Loader2, Plus, Trash2, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,11 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+type AllowlistStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 type AllowlistEntry = {
   id: string;
   type: "EMAIL" | "DOMAIN" | "GITHUB_USERNAME";
   value: string;
+  status: AllowlistStatus;
+  autoCreated: boolean;
   createdAt: string;
   addedBy: { name: string; email: string } | null;
   claimedByUser: { name: string; email: string } | null;
@@ -40,6 +46,58 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
   const [deleteTarget, setDeleteTarget] = useState<AllowlistEntry | null>(null);
   const [revokeMembership, setRevokeMembership] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+
+  async function approve(entry: AllowlistEntry) {
+    setPendingActionId(entry.id);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/allowlist/${entry.id}/approve`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.message || "Failed to approve");
+      }
+      const credits = json?.data?.retroCredits ?? json?.retroCredits ?? 0;
+      toast.success(
+        credits > 0
+          ? `Approved ${entry.value}. Retroactively credited ${credits} PR(s).`
+          : `Approved ${entry.value}.`,
+      );
+      await fetchEntries();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve");
+    } finally {
+      setPendingActionId(null);
+    }
+  }
+
+  async function reject(entry: AllowlistEntry) {
+    setPendingActionId(entry.id);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/allowlist/${entry.id}/reject`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.message || "Failed to reject");
+      }
+      toast.success(`Rejected ${entry.value}.`);
+      await fetchEntries();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reject");
+    } finally {
+      setPendingActionId(null);
+    }
+  }
 
   useEffect(() => {
     fetchEntries();
@@ -243,65 +301,146 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
         )}
       </div>
 
-      {/* Existing Entries */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-sm">Current Allowlist ({entries.length})</h3>
-        
-        {loading ? (
-          <div className="flex justify-center p-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No entries found. Add emails, domains, or GitHub usernames above to allow users to automatically join this organization.
-          </div>
-        ) : (
-          <div className="rounded-md border max-h-[300px] overflow-y-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 text-muted-foreground sticky top-0">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Value</th>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3 font-medium">{entry.value}</td>
-                    <td className="px-4 py-3 text-xs">
-                      <span className="bg-primary/10 text-primary px-2 py-1 rounded">
-                        {entry.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {entry.claimedByUser ? (
-                        <span className="text-green-600 dark:text-green-400 flex items-center gap-1 text-xs">
-                          Claimed by {entry.claimedByUser.name || entry.claimedByUser.email}
-                        </span>
-                      ) : (
-                        <span className="text-amber-600 dark:text-amber-400 text-xs">Pending</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => requestDelete(entry)}
-                        aria-label={`Remove allowlist entry ${entry.value}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {(() => {
+        if (loading) {
+          return (
+            <div className="flex justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          );
+        }
+        const pending = entries.filter((e) => e.status === "PENDING");
+        const reviewed = entries.filter((e) => e.status !== "PENDING");
+        return (
+          <>
+            {/* Pending approvals (queue of unverified contributors) */}
+            {pending.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm text-amber-700 dark:text-amber-400">
+                  Pending approvals ({pending.length})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  These contributors opened PRs on this org's projects but
+                  aren't on the allowlist yet. Until you approve them, any
+                  merged PRs they author won't earn scoring credit.
+                </p>
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 divide-y divide-amber-500/20">
+                  {pending.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between gap-3 p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium font-mono text-sm truncate">
+                            {entry.value}
+                          </span>
+                          <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded uppercase">
+                            {entry.type.replace("_", " ")}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Auto-added · pending org approval
+                        </p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10"
+                          onClick={() => approve(entry)}
+                          disabled={pendingActionId === entry.id}
+                        >
+                          {pendingActionId === entry.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-destructive border-destructive/40 hover:bg-destructive/10"
+                          onClick={() => reject(entry)}
+                          disabled={pendingActionId === entry.id}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Reviewed entries (approved + rejected) */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm">
+                Allowlist ({reviewed.length})
+              </h3>
+              {reviewed.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No approved or rejected entries yet. Add emails, domains,
+                  or GitHub usernames above to pre-approve users.
+                </div>
+              ) : (
+                <div className="rounded-md border max-h-[300px] overflow-y-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-muted/50 text-muted-foreground sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 font-medium">Value</th>
+                        <th className="px-4 py-2 font-medium">Type</th>
+                        <th className="px-4 py-2 font-medium">Status</th>
+                        <th className="px-4 py-2 font-medium text-right">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {reviewed.map((entry) => (
+                        <tr key={entry.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 font-medium font-mono text-xs">
+                            {entry.value}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded">
+                              {entry.type.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusPill
+                              status={entry.status}
+                              claimed={!!entry.claimedByUser}
+                              claimedName={
+                                entry.claimedByUser?.name ||
+                                entry.claimedByUser?.email ||
+                                null
+                              }
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => requestDelete(entry)}
+                              aria-label={`Remove allowlist entry ${entry.value}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       <Dialog
         open={!!deleteTarget}
@@ -370,6 +509,42 @@ export function AllowlistManager({ organizationId, accessToken }: AllowlistManag
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function StatusPill({
+  status,
+  claimed,
+  claimedName,
+}: {
+  status: AllowlistStatus;
+  claimed: boolean;
+  claimedName: string | null;
+}) {
+  const palette: Record<AllowlistStatus, string> = {
+    PENDING:
+      "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/30",
+    APPROVED:
+      "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+    REJECTED:
+      "text-destructive bg-destructive/10 border-destructive/30",
+  };
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={cn(
+          "inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+          palette[status],
+        )}
+      >
+        {status}
+      </span>
+      {status === "APPROVED" && claimed && claimedName && (
+        <span className="text-[11px] text-muted-foreground">
+          Claimed by {claimedName}
+        </span>
+      )}
     </div>
   );
 }
