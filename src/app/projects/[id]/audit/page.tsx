@@ -5,6 +5,10 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authOptions } from "@/lib/auth";
 
+// Audit log grows as webhooks land; bypass the Router Cache so navigating
+// back to this tab shows the latest entries.
+export const dynamic = "force-dynamic";
+
 type ApiResult<T> = { data?: T; error?: string };
 
 async function fetchApi<T>(path: string, token: string): Promise<ApiResult<T>> {

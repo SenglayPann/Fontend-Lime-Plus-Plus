@@ -4,6 +4,11 @@ import { ProjectMembersClient } from "@/components/projects/ProjectMembersClient
 import { authOptions } from "@/lib/auth";
 import { canManageProject, canManageProjectScope } from "@/lib/project-access";
 
+// Member mutations call router.refresh(); without force-dynamic the
+// Router Cache serves the stale render and the new member list never
+// appears until a hard reload.
+export const dynamic = "force-dynamic";
+
 type ApiResult<T> = { data?: T; error?: string };
 
 async function fetchApi<T>(path: string, token: string): Promise<ApiResult<T>> {

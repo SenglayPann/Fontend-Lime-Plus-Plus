@@ -22,6 +22,10 @@ import {
 import { ReportDownloadButton } from "@/components/reports/ReportDownloadButton";
 import { cn } from "@/lib/utils";
 
+// Contribution totals tick up as PRs merge / reviews land; bypass the
+// Router Cache so navigating back to this page shows current numbers.
+export const dynamic = "force-dynamic";
+
 type MyContributions = {
   user: {
     id: string;

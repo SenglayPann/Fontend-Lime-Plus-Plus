@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { ProjectListClient } from "@/components/projects/ProjectListClient";
 import { fetchServerApi, type ServerApiResult } from "@/lib/server-api";
 
+// Status and task counts can change via webhooks while a user is on
+// this page; bypass the Router Cache so the list reflects current state.
+export const dynamic = "force-dynamic";
+
 export default async function ProjectsPage({
   searchParams,
 }: {

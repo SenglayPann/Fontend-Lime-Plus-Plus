@@ -2,6 +2,9 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+
+// Scores and counts update as webhooks land; bypass the Router Cache.
+export const dynamic = "force-dynamic";
 import {
   Users,
   FolderKanban,
