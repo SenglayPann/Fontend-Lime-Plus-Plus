@@ -32,6 +32,11 @@ import { ReportDownloadButton } from "@/components/reports/ReportDownloadButton"
 import { ProjectActions } from "@/components/projects/ProjectActions";
 import { LinkGitHubBanner } from "@/components/projects/LinkGitHubBanner";
 
+// Live updates push project.updated → router.refresh(). The Router Cache
+// will otherwise re-render this page from its cached output and the UI
+// stays stuck on the data that was current at first page load.
+export const dynamic = "force-dynamic";
+
 type ApiResult<T> = { data?: T; error?: string };
 
 async function fetchApi<T>(path: string, token: string): Promise<ApiResult<T>> {

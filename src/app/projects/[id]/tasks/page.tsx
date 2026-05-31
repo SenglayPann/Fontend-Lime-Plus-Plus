@@ -4,6 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { canManageProject } from "@/lib/project-access";
 import { ProjectTasksClient } from "@/components/projects/ProjectTasksClient";
 
+// SSE pushes project.updated events whenever a webhook lands; the client
+// hook calls router.refresh() to pull fresh data. Without force-dynamic
+// Next.js may serve the static render from the Router Cache and the page
+// silently appears stuck.
+export const dynamic = "force-dynamic";
+
 async function fetchApi<T>(
   path: string,
   token: string,
